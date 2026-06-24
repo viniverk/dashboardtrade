@@ -14,10 +14,12 @@ initializeApp(firebaseConfig);
 const auth = getAuth();
 const provider = new GoogleAuthProvider();
 
-let todasOperacoes = []; // Fonte de verdade (dados brutos processados)
+let todasOperacoes = [];
 let chart;
 
-// Função inteligente de tratamento de valores
+// Registra o plugin de rótulos de dados
+Chart.register(ChartDataLabels);
+
 function tratarValor(valor) {
     if (!valor) return 0;
     let s = valor.toString().replace(/["'\sR$]/g, '');
@@ -54,10 +56,19 @@ async function carregarDadosDoGitHub() {
             const lucro = tratarValor(colunas[idxLucro]);
             const resp = idxResp !== -1 ? tratarValor(colunas[idxResp]) : 0;
             
-            // Extrai data limpa para filtro
-            const dataLimpa = dataHora.split(' ')[0]; // "23-jun-26"
-            const ano = "20" + dataLimpa.split('-')[2];
-            const mes = dataLimpa.split('-')[1]; // jun
+            // Extração de dados da data
+            let dataLimpa = dataHora;
+            let ano = "Todos";
+            let mes = "Todos";
+
+            if (dataHora.includes('-')) {
+                dataLimpa = dataHora.split(' ')[0]; // ex: "23-jun-26"
+                const partesData = dataLimpa.split('-');
+                if (partesData.length === 3) {
+                    ano = "20" + partesData[2];
+                    mes = partesData[1].toLowerCase();
+                }
+            }
 
             const chave = `${mercado}|${dataHora}`;
 
@@ -70,36 +81,44 @@ async function carregarDadosDoGitHub() {
 
         todasOperacoes = Object.values(agrupador);
         
-        // Preenche menus dinâmicos
         preencherFiltrosDinamicos();
-        // Renderiza tudo
         aplicarFiltros();
         
-    } catch (error) { console.error("Erro:", error); }
+    } catch (error) { console.error("Erro no processamento:", error); }
 }
 
 function preencherFiltrosDinamicos() {
-    const anos = [...new Set(todasOperacoes.map(o => o.ano))].sort();
-    const datas = [...new Set(todasOperacoes.map(o => o.dataLimpa))].sort();
+    const anos = [...new Set(todasOperacoes.map(o => o.ano))].filter(a => a !== "Todos").sort();
+    const datas = [...new Set(todasOperacoes.map(o => o.dataLimpa))].filter(d => d !== "Sem Data").sort();
     
     const selAno = document.getElementById('filtro-ano');
     const selData = document.getElementById('filtro-data');
     
+    selAno.innerHTML = '<option value="TODOS">Todos</option>';
     anos.forEach(a => selAno.innerHTML += `<option value="${a}">${a}</option>`);
+
+    selData.innerHTML = '<option value="TODAS">Todas as Datas</option>';
     datas.forEach(d => selData.innerHTML += `<option value="${d}">${d}</option>`);
 }
 
 function aplicarFiltros() {
     const fEstrat = document.getElementById('filtro-estrategia').value;
     const fAno = document.getElementById('filtro-ano').value;
-    const fMes = document.getElementById('filtro-mes').value;
+    const fMes = document.getElementById('filtro-mes').value; 
     const fData = document.getElementById('filtro-data').value;
     const fGrafico = document.getElementById('tipo-grafico').value;
+
+    // Traduz o número do HTML para o texto que vem no CSV da Betfair
+    const mesesMap = {
+        "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun",
+        "6": "jul", "7": "ago", "8": "set", "9": "out", "10": "nov", "11": "dez"
+    };
+    const mesBuscado = mesesMap[fMes];
 
     const filtradas = todasOperacoes.filter(op => {
         const condEstrat = (fEstrat === 'TODAS' || (fEstrat === 'MO' && op.mercado.includes('Resultado')) || (fEstrat === 'LG' && op.mercado.includes('Placar')));
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
-        const condMes = (fMes === 'TODOS' || op.mes === fMes.toLowerCase().substring(0,3));
+        const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
         const condData = (fData === 'TODAS' || op.dataLimpa === fData);
         return condEstrat && condAno && condMes && condData;
     });
@@ -118,7 +137,10 @@ function aplicarFiltros() {
 }
 
 function renderizarGrafico(lista, tipoGrafico) {
-    const ctx = document.getElementById('meuGrafico').getContext('2d');
+    const canvas = document.getElementById('meuGrafico');
+    if (!canvas) return; 
+    const ctx = canvas.getContext('2d');
+    
     if (chart) chart.destroy();
 
     // Agrupa por DATA (eixo X)
@@ -134,43 +156,58 @@ function renderizarGrafico(lista, tipoGrafico) {
     let dadosParaGrafico = valoresDiarios;
     if (tipoGrafico === 'line') {
         let saldo = 0;
-        dadosParaGrafico = valoresDiarios.map(v => saldo += v);
+        dadosParaGrafico = valoresDiarios.map(v => {
+            saldo += v;
+            return saldo;
+        });
     }
 
     chart = new Chart(ctx, {
         type: tipoGrafico,
-        plugins: [ChartDataLabels],
         data: {
             labels: labels,
             datasets: [{
-                label: tipoGrafico === 'line' ? 'Evolução da Banca' : 'Lucro Diário',
-                data: dadosFinais,
+                label: tipoGrafico === 'line' ? 'Evolução da Banca (R$)' : 'Lucro Diário (R$)',
+                data: dadosParaGrafico, // O Erro estava aqui na variável! 
                 backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)',
-                borderColor: '#36a2eb',
+                borderColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : '#36a2eb',
                 borderWidth: 2,
-                fill: tipoGrafico === 'line'
+                fill: tipoGrafico === 'line',
+                tension: 0.2
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { datalabels: { anchor: 'end', align: 'top', formatter: v => v.toFixed(2) } }
+            layout: {
+                padding: { top: 30 }
+            },
+            plugins: { 
+                datalabels: { 
+                    anchor: 'end', 
+                    align: 'top', 
+                    formatter: v => 'R$ ' + v.toFixed(2),
+                    font: { weight: 'bold' }
+                } 
+            }
         }
     });
 }
 
 function atualizarTabela(lista) {
     const corpo = document.getElementById('corpo-tabela');
+    if(!corpo) return;
     corpo.innerHTML = "";
     lista.slice().reverse().forEach(op => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td style="padding:10px;">${op.mercado}</td><td style="padding:10px;">${op.data}</td><td style="padding:10px;">${op.resp > 0 ? 'R$ '+op.resp.toFixed(2) : '-'}</td><td style="padding:10px; color:${op.pnl >= 0 ? 'green':'red'}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>`;
+        tr.innerHTML = `<td style="padding:10px; font-size: 13px;">${op.mercado}</td><td style="padding:10px; font-size: 13px;">${op.data}</td><td style="padding:10px; font-size: 13px;">${op.resp > 0 ? 'R$ '+op.resp.toFixed(2) : '-'}</td><td style="padding:10px; font-size: 13px; color:${op.pnl >= 0 ? 'green':'red'}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>`;
         corpo.appendChild(tr);
     });
 }
 
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
-    document.getElementById(id).addEventListener('change', aplicarFiltros);
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('change', aplicarFiltros);
 });
 
 document.getElementById('btn-login').addEventListener('click', () => {
@@ -178,5 +215,5 @@ document.getElementById('btn-login').addEventListener('click', () => {
         document.getElementById('auth-container').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         carregarDadosDoGitHub();
-    });
+    }).catch(error => console.error("Erro no login:", error));
 });
