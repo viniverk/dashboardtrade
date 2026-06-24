@@ -43,8 +43,6 @@ async function carregarDadosDoGitHub() {
         const linhas = text.split('\n');
         
         todasOperacoes = [];
-        
-        // NOVO: Memória temporária para identificar e bloquear entradas duplicadas
         const operacoesProcessadas = new Set();
 
         for (let i = 1; i < linhas.length; i++) {
@@ -59,14 +57,11 @@ async function carregarDadosDoGitHub() {
             const horaInicio = colunas.pop().replace(/["']/g, '');     
             const mercadoOriginal = colunas.join(',').replace(/["']/g, ''); 
             
-            // NOVO: Criação da "Chave Única" da aposta
             const chaveUnica = `${mercadoOriginal}|${horaInicio}|${dataResolucao}|${resultadoTexto}`;
 
-            // NOVO: Se a aposta já existir na memória, é duplicada. Pula para a próxima linha.
             if (operacoesProcessadas.has(chaveUnica)) {
                 continue;
             }
-            // Caso seja nova, adiciona à memória para proteger contra futuras duplicidades do mesmo arquivo
             operacoesProcessadas.add(chaveUnica);
 
             const mercadoLower = mercadoOriginal.toLowerCase();
