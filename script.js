@@ -35,6 +35,7 @@ async function carregarDadosDoGitHub() {
             let colunas = linhaLimpa.split(',');
             if (colunas.length < 4) continue;
 
+            // Extração de trás para frente para evitar que quebras por vírgulas nos nomes dos times
             const resultadoTexto = colunas.pop().replace(/["']/g, ''); 
             const dataResolucao = colunas.pop().replace(/["']/g, '');  
             const horaInicio = colunas.pop().replace(/["']/g, '');     
@@ -59,23 +60,16 @@ async function carregarDadosDoGitHub() {
             });
         }
 
-        // 1. Lucro Bruto (Apenas a soma das estratégias)
-        const lucroBrutoTotal = lucroMO + lucroLG;
+        // Agora o Lucro Líquido reflete exatamente o valor bruto ganho nas operações (R$ 72,82)
+        const lucroTotalLiquido = lucroMO + lucroLG;
         
-        // 2. Lucro Líquido (Bruto menos o custo das transmissões)
-        const lucroTotalLiquido = lucroBrutoTotal - 150.00;
-        
-        // Atualiza o card de Lucro Bruto
-        const displayBruto = document.getElementById('lucro-bruto');
-        if (displayBruto) displayBruto.innerText = `R$ ${lucroBrutoTotal.toFixed(2)}`;
-
-        // Atualiza o card de Custo Fixo (caso queira garantir dinamicamente)
-        const displayCusto = document.getElementById('custo-fixo');
-        if (displayCusto) displayCusto.innerText = `R$ 150,00`;
-
-        // Atualiza o card de Lucro Líquido
+        // Atualiza o card de Lucro Líquido na tela
         const displayLucro = document.getElementById('lucro');
         if (displayLucro) displayLucro.innerText = `R$ ${lucroTotalLiquido.toFixed(2)}`;
+        
+        // Mantém fixo o indicador do custo de transmissões
+        const displayCusto = document.getElementById('custo-fixo');
+        if (displayCusto) displayCusto.innerHTML = `R$ 150,00 <span style="font-size: 11px; color: #888; display: block; margin-top: 5px;">Vence todo dia 16</span>`;
         
         // Atualiza o Status de Risco
         const riscoStatus = document.getElementById('risco-status');
@@ -102,7 +96,7 @@ function renderizarGrafico(valMO, valLG) {
         data: {
             labels: ['Match Odds (Resultado)', 'Lay Goleada (Placar)'],
             datasets: [{ 
-                label: 'Lucro Bruto por Estratégia (R$)', 
+                label: 'Lucro por Estratégia (R$)', 
                 data: [valMO, valLG], 
                 backgroundColor: ['#36a2eb', '#ff6384'],
                 borderWidth: 1
@@ -115,7 +109,7 @@ function renderizarGrafico(valMO, valLG) {
     });
 }
 
-function actualizarTabela(lista) {
+function atualizarTabela(lista) {
     const corpoTabela = document.getElementById('corpo-tabela');
     if (!corpoTabela) return;
 
