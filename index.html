@@ -2,116 +2,39 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TradeEsportivo Dashboard</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 </head>
 <body>
-
     <div id="auth-container">
         <div class="login-box">
             <h2>Acesse o seu Dashboard</h2>
-            <p>Conecte-se com a sua conta Google para visualizar as suas métricas.</p>
             <button id="btn-login">Login com Google</button>
         </div>
     </div>
 
     <div id="dashboard" style="display:none;">
-        <header>
-            <h1>Dashboard de Resultados - Trade Esportivo</h1>
-        </header>
-        
         <div class="cards">
-            <div class="card">
-                <h3>Lucro Líquido</h3>
-                <p id="lucro">R$ 0,00</p>
-            </div>
-            <div class="card">
-                <h3>Média de Responsab.</h3>
-                <p id="media-responsabilidade" style="color: #d97706;">R$ 0,00</p>
-            </div>
-            <div class="card">
-                <h3>Custos de Transmissões</h3>
-                <p id="custo-fixo">R$ 150,00 <span style="font-size: 11px; color: #888; display: block; margin-top: 5px;">Vence dia 16</span></p>
-            </div>
+            <div class="card"><h3>Lucro Líquido</h3><p id="lucro">R$ 0,00</p></div>
+            <div class="card"><h3>Custos (Dia 16)</h3><p>R$ 150,00</p></div>
         </div>
 
-        <div class="filtros-container" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 15px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            
-            <div style="flex: 1; min-width: 150px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Estratégia:</label>
-                <select id="filtro-estrategia" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="TODAS">Todas</option>
-                    <option value="MO">Match Odds</option>
-                    <option value="LG">Lay Goleada</option>
-                </select>
-            </div>
-
-            <div style="flex: 1; min-width: 120px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Ano:</label>
-                <select id="filtro-ano" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="TODOS">Todos</option>
-                </select>
-            </div>
-
-            <div style="flex: 1; min-width: 120px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Mês:</label>
-                <select id="filtro-mes" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="TODOS">Todos</option>
-                    <option value="0">Janeiro</option>
-                    <option value="1">Fevereiro</option>
-                    <option value="2">Março</option>
-                    <option value="3">Abril</option>
-                    <option value="4">Maio</option>
-                    <option value="5">Junho</option>
-                    <option value="6">Julho</option>
-                    <option value="7">Agosto</option>
-                    <option value="8">Setembro</option>
-                    <option value="9">Outubro</option>
-                    <option value="10">Novembro</option>
-                    <option value="11">Dezembro</option>
-                </select>
-            </div>
-
-            <div style="flex: 1; min-width: 140px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Data Específica:</label>
-                <select id="filtro-data" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="TODAS">Todas as Datas</option>
-                </select>
-            </div>
-
-            <div style="flex: 1; min-width: 140px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Gráfico (Visual):</label>
-                <select id="tipo-grafico" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; background-color: #f0f8ff;">
-                    <option value="bar">Barras</option>
-                    <option value="line">Linhas</option>
-                </select>
-            </div>
+        <div class="filtros-container">
+            <select id="filtro-estrategia"><option value="TODAS">Todas</option><option value="MO">Match Odds</option><option value="LG">Lay Goleada</option></select>
+            <select id="tipo-grafico"><option value="bar">Barras</option><option value="line">Linhas</option></select>
         </div>
 
-        <div class="chart-container" style="margin-top: 20px; background: white; padding: 15px; border-radius: 10px; max-height: 380px; position: relative;">
-            <canvas id="meuGrafico" style="max-height: 350px; width: 100%;"></canvas>
+        <div class="chart-container" style="height: 300px; width: 100%; background: white;">
+            <canvas id="meuGrafico"></canvas>
         </div>
 
-        <div class="table-container" style="margin-top: 20px; background: white; padding: 20px; border-radius: 10px;">
-            <h3>Listagem de Operações Filtradas</h3>
-            <table id="tabela-operacoes" style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
-                <thead>
-                    <tr style="border-bottom: 2px solid #ddd; background-color: #f8f9fa;">
-                        <th style="padding: 10px;">Mercado</th>
-                        <th style="padding: 10px;">Data/Hora</th>
-                        <th style="padding: 10px;">Responsabilidade</th>
-                        <th style="padding: 10px;">Lucro/Perda (R$)</th>
-                    </tr>
-                </thead>
-                <tbody id="corpo-tabela"></tbody>
-            </table>
-        </div>
+        <table id="tabela-operacoes" style="width:100%; margin-top:20px;">
+            <thead><tr><th>Mercado</th><th>Data</th><th>Resp.</th><th>Lucro/Perda</th></tr></thead>
+            <tbody id="corpo-tabela"></tbody>
+        </table>
     </div>
-
     <script type="module" src="script.js"></script>
 </body>
 </html>
