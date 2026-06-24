@@ -36,6 +36,7 @@ function parseDataBetfair(dataString) {
 }
 
 async function carregarDadosDoGitHub() {
+    // O timestamp no final obriga o navegador a ignorar o cache e buscar o ficheiro mais recente
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
     
     try {
@@ -52,6 +53,7 @@ async function carregarDadosDoGitHub() {
             let colunas = linhaLimpa.split(',');
             if (colunas.length < 4) continue;
 
+            // Extração de trás para a frente para evitar erros com vírgulas no nome das equipas
             const resultadoTexto = colunas.pop().replace(/["']/g, ''); 
             const dataResolucao = colunas.pop().replace(/["']/g, '');  
             const horaInicio = colunas.pop().replace(/["']/g, '');     
@@ -82,18 +84,18 @@ async function carregarDadosDoGitHub() {
             });
         }
 
-        // Ordena tudo de forma cronológica
+        // Ordena tudo de forma cronológica (do mais antigo para o mais recente)
         todasOperacoes.sort((a, b) => a.dataObj - b.dataObj);
         
         preencherFiltrosDinamicos();
         aplicarFiltros();
         
     } catch (error) { 
-        console.error("Erro ao carregar CSV:", error); 
+        console.error("Erro ao carregar ficheiro CSV:", error); 
     }
 }
 
-// Preenche os menus "Ano" e "Data" automaticamente baseado no arquivo CSV
+// Preenche os menus "Ano" e "Data" automaticamente com base no ficheiro CSV
 function preencherFiltrosDinamicos() {
     const selectAno = document.getElementById('filtro-ano');
     const selectData = document.getElementById('filtro-data');
@@ -108,7 +110,7 @@ function preencherFiltrosDinamicos() {
     datasUnicas.forEach(data => selectData.innerHTML += `<option value="${data}">${data}</option>`);
 }
 
-// O Núcleo do Filtro: Cruza todos os campos selecionados e atualiza a tela
+// Núcleo de Filtros: Cruza os dados e atualiza os KPIs, Tabela e Gráficos
 function aplicarFiltros() {
     const fEstrat = document.getElementById('filtro-estrategia').value;
     const fAno = document.getElementById('filtro-ano').value;
@@ -126,58 +128,86 @@ function aplicarFiltros() {
 
     // 1. Atualiza o KPI de Lucro Líquido
     const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
-    document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
-    document.getElementById('lucro').style.color = lucroLiquido >= 0 ? 'green' : 'red';
+    const lucroElem = document.getElementById('lucro');
+    if (lucroElem) {
+        lucroElem.innerText = `R$ ${lucroLiquido.toFixed(2)}`;
+        lucroElem.style.color = lucroLiquido >= 0 ? 'green' : 'red';
+    }
 
-    // 2. Atualiza a Tabela
-    atualizarTabela(filtradas.slice().reverse()); // Reverte para a mais recente em cima
+    // 2. Atualiza a Tabela (reverte para mostrar a mais recente no topo)
+    atualizarTabela(filtradas.slice().reverse()); 
 
-    // 3. Atualiza o Gráfico (Agrupando pela Data)
+    // 3. Atualiza o Gráfico com a lógica de Saldo Acumulado
     renderizarGrafico(filtradas, fGrafico);
 }
 
-// Renderiza o gráfico somando os valores de cada dia filtrado
+// Renderiza o gráfico: Evolução da Banca (Linha) ou Lucro Individual (Barra)
 function renderizarGrafico(lista, tipoGrafico) {
     const ctx = document.getElementById('meuGrafico').getContext('2d');
     if (chart) chart.destroy();
 
-    // Agrupa os lucros pelo Dia
-    let agrupado = {};
+    // 1. Agrupa primeiro o lucro individual de cada dia (garantindo a ordem cronológica)
+    let lucroPorDia = {};
     lista.forEach(o => {
-        if(!agrupado[o.dataStr]) agrupado[o.dataStr] = 0;
-        agrupado[o.dataStr] += o.pnl;
+        if(!lucroPorDia[o.dataStr]) lucroPorDia[o.dataStr] = 0;
+        lucroPorDia[o.dataStr] += o.pnl;
     });
 
-    const labels = Object.keys(agrupado);
-    const data = Object.values(agrupado);
+    const labels = Object.keys(lucroPorDia); 
+    const valoresIndividuais = Object.values(lucroPorDia);
 
-    // Se for Barra, pinta lucro de verde e red de vermelho
-    // Se for linha, usa a linha azul de evolução com preenchimento
-    const isBar = tipoGrafico === 'bar';
-    const bgColors = isBar ? data.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)';
-    const bdColors = isBar ? data.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : '#36a2eb';
+    // 2. Transforma os lucros diários em SALDO ACUMULADO (A curva da banca)
+    let saldoAcumulado = [];
+    let somaAcumulada = 0;
+    
+    valoresIndividuais.forEach(valorDiario => {
+        somaAcumulada += valorDiario;
+        saldoAcumulado.push(parseFloat(somaAcumulada.toFixed(2)));
+    });
+
+    // 3. Configura a visualização com base na escolha (Linha ou Barra)
+    const isLine = tipoGrafico === 'line';
+    const dadosFinais = isLine ? saldoAcumulado : valoresIndividuais;
+    const nomeLabel = isLine ? 'Saldo Acumulado / Evolução da Banca (R$)' : 'Lucro/Prejuízo Diário (R$)';
+
+    const bgColors = isLine ? 'rgba(54, 162, 235, 0.2)' : valoresIndividuais.map(v => v >= 0 ? '#4bc0c0' : '#ff6384');
+    const bdColors = isLine ? '#36a2eb' : valoresIndividuais.map(v => v >= 0 ? '#4bc0c0' : '#ff6384');
 
     chart = new Chart(ctx, {
-        type: tipoGrafico, // 'bar' ou 'line'
+        type: tipoGrafico,
         data: {
             labels: labels,
             datasets: [{
-                label: 'Lucro Consolidado (R$)',
-                data: data,
+                label: nomeLabel,
+                data: dadosFinais,
                 backgroundColor: bgColors,
                 borderColor: bdColors,
                 borderWidth: 2,
-                fill: !isBar, // Preenchimento abaixo da linha
-                tension: 0.2  // Curva leve na linha
+                fill: isLine, // Preenchimento sombreado sob a linha
+                tension: 0.2  // Curvatura suave na linha
             }]
         },
         options: {
             responsive: true,
-            scales: { y: { beginAtZero: true } }
+            scales: { 
+                y: { 
+                    beginAtZero: false // Permite que o gráfico suba/desça livremente de acordo com a banca
+                } 
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: R$ ${context.raw.toFixed(2)}`;
+                        }
+                    }
+                }
+            }
         }
     });
 }
 
+// Desenha a listagem no ecrã
 function atualizarTabela(lista) {
     const corpoTabela = document.getElementById('corpo-tabela');
     if (!corpoTabela) return;
@@ -200,11 +230,15 @@ function atualizarTabela(lista) {
     });
 }
 
-// Configura os gatilhos: Qualquer mudança em qualquer caixa recarrega os dados
+// Configura os gatilhos: Qualquer mudança numa das caixas recarrega os dados imediatamente
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
-    document.getElementById(id).addEventListener('change', aplicarFiltros);
+    const elemento = document.getElementById(id);
+    if(elemento) {
+        elemento.addEventListener('change', aplicarFiltros);
+    }
 });
 
+// Evento do botão de login
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then(() => {
         document.getElementById('auth-container').style.display = 'none';
