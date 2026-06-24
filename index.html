@@ -37,6 +37,22 @@
             <h3>Desempenho por Estratégia</h3>
             <canvas id="meuGrafico"></canvas>
         </div>
+
+        <div class="table-container" style="margin-top: 30px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            <h3>Listagem de Operações Recentes</h3>
+            <table id="tabela-operacoes" style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ddd; background-color: #f8f9fa;">
+                        <th style="padding: 10px;">Mercado</th>
+                        <th style="padding: 10px;">Hora de Início</th>
+                        <th style="padding: 10px;">Data de Resolução</th>
+                        <th style="padding: 10px;">Lucro/Perda (R$)</th>
+                    </tr>
+                </thead>
+                <tbody id="corpo-tabela">
+                    </tbody>
+            </table>
+        </div>
     </div>
 
     <script type="module" src="script.js"></script>
