@@ -168,6 +168,45 @@ function renderizarGrafico(lista, tipoGrafico) {
             labels: labels,
             datasets: [{
                 label: tipoGrafico === 'line' ? 'Evolução da Banca (R$)' : 'Lucro Diário (R$)',
+                data: dadosParaGrafico, 
+                backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)',
+                borderColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : '#36a2eb',
+                borderWidth: 2,
+                fill: tipoGrafico === 'line',
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: { top: 20 }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grace: '20%' // O SEGREDO: Dá 20% de espaço extra no topo para o rótulo não encostar no teto
+                }
+            },
+            plugins: { 
+                datalabels: { 
+                    anchor: 'end', 
+                    align: 'top', 
+                    formatter: v => 'R$ ' + v.toFixed(2),
+                    font: { weight: 'bold', size: 11 },
+                    padding: { bottom: 10 } // Empurra o rótulo um pouquinho para cima da barra
+                } 
+            }
+        }
+    });
+}
+
+    chart = new Chart(ctx, {
+        type: tipoGrafico,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: tipoGrafico === 'line' ? 'Evolução da Banca (R$)' : 'Lucro Diário (R$)',
                 data: dadosParaGrafico, // O Erro estava aqui na variável! 
                 backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)',
                 borderColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : '#36a2eb',
