@@ -15,19 +15,36 @@ const auth = getAuth();
 const provider = new GoogleAuthProvider();
 let chart;
 
+// Variável Global para guardar as operações e permitir filtragem rápida
+let todasOperacoes = [];
+
+// Função auxiliar para interpretar a data da Betfair (ex: "23-jun-26")
+function parseDataBetfair(dataString) {
+    const partes = dataString.split(' ')[0].split('-'); // Pega "23-jun-26" e separa
+    if (partes.length !== 3) return { dataObj: new Date(0), dataStr: dataString, mesStr: dataString };
+    
+    const meses = { 'jan':0, 'fev':1, 'mar':2, 'abr':3, 'mai':4, 'jun':5, 'jul':6, 'ago':7, 'set':8, 'out':9, 'nov':10, 'dez':11 };
+    const dia = parseInt(partes[0]);
+    const mes = meses[partes[1].toLowerCase()] || 0;
+    const ano = 2000 + parseInt(partes[2]);
+    
+    // Mes Formatado (ex: "Jun/2026")
+    const mesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const mesStr = `${mesNomes[mes]}/${ano}`;
+
+    return { dataObj: new Date(ano, mes, dia), dataStr: partes.join('-'), mesStr: mesStr };
+}
+
 async function carregarDadosDoGitHub() {
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
     
     try {
         const response = await fetch(url);
         const text = await response.text();
-        
-        let lucroMO = 0; 
-        let lucroLG = 0; 
-        let operacoesLista = []; 
-
         const linhas = text.split('\n');
         
+        todasOperacoes = []; // Zera a lista antes de ler
+
         for (let i = 1; i < linhas.length; i++) {
             const linhaLimpa = linhas[i].trim();
             if (!linhaLimpa) continue;
@@ -35,7 +52,6 @@ async function carregarDadosDoGitHub() {
             let colunas = linhaLimpa.split(',');
             if (colunas.length < 4) continue;
 
-            // Extração de trás para frente para evitar que quebras por vírgulas nos nomes dos times
             const resultadoTexto = colunas.pop().replace(/["']/g, ''); 
             const dataResolucao = colunas.pop().replace(/["']/g, '');  
             const horaInicio = colunas.pop().replace(/["']/g, '');     
@@ -46,60 +62,118 @@ async function carregarDadosDoGitHub() {
 
             if (isNaN(resultado)) continue;
 
-            if (mercadoLower.includes("resultado da partida")) {
-                lucroMO += resultado;
-            } else if (mercadoLower.includes("placar correto")) {
-                lucroLG += resultado;
-            }
+            let categoriaEstrategia = "OUTROS";
+            if (mercadoLower.includes("resultado da partida")) categoriaEstrategia = "MO";
+            else if (mercadoLower.includes("placar correto")) categoriaEstrategia = "LG";
 
-            operacoesLista.push({
+            const infoData = parseDataBetfair(horaInicio);
+
+            todasOperacoes.push({
                 mercado: mercadoOriginal,
+                estrategia: categoriaEstrategia,
                 inicio: horaInicio,
                 fim: dataResolucao,
-                pnl: resultado
+                pnl: resultado,
+                dataObj: infoData.dataObj,
+                dataStr: infoData.dataStr, // Data do dia
+                mesStr: infoData.mesStr    // Mês Consolidado
             });
         }
 
-        // Agora o Lucro Líquido reflete exatamente o valor bruto ganho nas operações (R$ 72,82)
-        const lucroTotalLiquido = lucroMO + lucroLG;
+        // Ordena as operações de forma cronológica (do mais antigo pro mais novo)
+        todasOperacoes.sort((a, b) => a.dataObj - b.dataObj);
         
-        // Atualiza o card de Lucro Líquido na tela
-        const displayLucro = document.getElementById('lucro');
-        if (displayLucro) displayLucro.innerText = `R$ ${lucroTotalLiquido.toFixed(2)}`;
-        
-        // Mantém fixo o indicador do custo de transmissões
-        const displayCusto = document.getElementById('custo-fixo');
-        if (displayCusto) displayCusto.innerHTML = `R$ 150,00 <span style="font-size: 11px; color: #888; display: block; margin-top: 5px;">Vence todo dia 16</span>`;
-        
-        // Atualiza o Status de Risco
-        const riscoStatus = document.getElementById('risco-status');
-        if (riscoStatus) {
-            riscoStatus.innerText = "Monitoramento Ativo";
-            riscoStatus.style.color = "green";
-        }
-
-        const canvas = document.getElementById('meuGrafico');
-        if (canvas) renderizarGrafico(lucroMO, lucroLG);
-        
-        atualizarTabela(operacoesLista);
+        // Aplica os filtros assim que carrega os dados
+        aplicarFiltros();
         
     } catch (error) { 
         console.error("Erro ao carregar o arquivo CSV:", error); 
     }
 }
 
-function renderizarGrafico(valMO, valLG) {
+// A CEREJA DO BOLO: Função que aplica as escolhas dos menus suspensos
+function aplicarFiltros() {
+    const filtroEstrat = document.getElementById('filtro-estrategia').value;
+    const visaoGrafico = document.getElementById('visao-grafico').value;
+
+    // 1. Filtra os dados com base na escolha de Estratégia
+    let operacoesFiltradas = todasOperacoes.filter(op => {
+        if (filtroEstrat === "TODAS") return true;
+        return op.estrategia === filtroEstrat;
+    });
+
+    // 2. Calcula KPIs (Dinâmico de acordo com o filtro)
+    const lucroLiquido = operacoesFiltradas.reduce((acc, op) => acc + op.pnl, 0);
+    const displayLucro = document.getElementById('lucro');
+    if (displayLucro) displayLucro.innerText = `R$ ${lucroLiquido.toFixed(2)}`;
+
+    // 3. Atualiza Tabela (Revertemos para o mais novo aparecer em cima)
+    atualizarTabela(operacoesFiltradas.slice().reverse());
+
+    // 4. Desenha o Gráfico escolhido
+    renderizarGrafico(operacoesFiltradas, visaoGrafico);
+}
+
+function renderizarGrafico(lista, visao) {
     const ctx = document.getElementById('meuGrafico').getContext('2d');
     if (chart) chart.destroy();
+
+    let labels = [];
+    let data = [];
+    let tipoGrafico = 'bar';
+    let coresFundo = [];
+    let configDataset = {};
+
+    if (visao === 'estrategia') {
+        tipoGrafico = 'bar';
+        let mo = lista.filter(o => o.estrategia === 'MO').reduce((acc, o) => acc + o.pnl, 0);
+        let lg = lista.filter(o => o.estrategia === 'LG').reduce((acc, o) => acc + o.pnl, 0);
+        labels = ['Match Odds', 'Lay Goleada'];
+        data = [mo, lg];
+        coresFundo = ['#36a2eb', '#ff6384'];
+        configDataset = { backgroundColor: coresFundo };
+
+    } else if (visao === 'data') {
+        tipoGrafico = 'line';
+        let agrupado = {};
+        // Soma por Data (Dia a Dia)
+        lista.forEach(o => {
+            if(!agrupado[o.dataStr]) agrupado[o.dataStr] = 0;
+            agrupado[o.dataStr] += o.pnl;
+        });
+        labels = Object.keys(agrupado);
+        data = Object.values(agrupado);
+        configDataset = {
+            borderColor: '#36a2eb',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            fill: true,
+            tension: 0.1
+        };
+
+    } else if (visao === 'mes') {
+        tipoGrafico = 'bar';
+        let agrupado = {};
+        // Soma por Mês Consolidado
+        lista.forEach(o => {
+            if(!agrupado[o.mesStr]) agrupado[o.mesStr] = 0;
+            agrupado[o.mesStr] += o.pnl;
+        });
+        labels = Object.keys(agrupado);
+        data = Object.values(agrupado);
+        // Cores Dinâmicas: Verde pra Lucro no mês, Vermelho para Prejuízo no mês
+        coresFundo = data.map(v => v >= 0 ? '#4bc0c0' : '#ff6384');
+        configDataset = { backgroundColor: coresFundo };
+    }
+
     chart = new Chart(ctx, {
-        type: 'bar',
+        type: tipoGrafico,
         data: {
-            labels: ['Match Odds (Resultado)', 'Lay Goleada (Placar)'],
-            datasets: [{ 
-                label: 'Lucro por Estratégia (R$)', 
-                data: [valMO, valLG], 
-                backgroundColor: ['#36a2eb', '#ff6384'],
-                borderWidth: 1
+            labels: labels,
+            datasets: [{
+                label: `Lucro (R$) - ${visao.toUpperCase()}`,
+                data: data,
+                borderWidth: 1,
+                ...configDataset
             }]
         },
         options: {
@@ -112,16 +186,13 @@ function renderizarGrafico(valMO, valLG) {
 function atualizarTabela(lista) {
     const corpoTabela = document.getElementById('corpo-tabela');
     if (!corpoTabela) return;
-
     corpoTabela.innerHTML = ""; 
 
     lista.forEach(op => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid #eee";
-
         const corValor = op.pnl >= 0 ? "green" : "red";
         const sinal = op.pnl >= 0 ? "+" : "";
-
         tr.innerHTML = `
             <td style="padding: 10px; font-size: 14px;">${op.mercado}</td>
             <td style="padding: 10px; font-size: 14px; color: #555;">${op.inicio}</td>
@@ -133,6 +204,10 @@ function atualizarTabela(lista) {
         corpoTabela.appendChild(tr);
     });
 }
+
+// Event Listeners dos Menus Suspensos para alterarem os dados na hora do clique
+document.getElementById('filtro-estrategia').addEventListener('change', aplicarFiltros);
+document.getElementById('visao-grafico').addEventListener('change', aplicarFiltros);
 
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then(() => {
