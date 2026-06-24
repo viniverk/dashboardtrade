@@ -17,7 +17,7 @@ const provider = new GoogleAuthProvider();
 let todasOperacoes = [];
 let chart;
 
-// Registra o plugin de rótulos de dados
+										 
 Chart.register(ChartDataLabels);
 
 function tratarValor(valor) {
@@ -41,6 +41,7 @@ async function carregarDadosDoGitHub() {
         const idxData = cabecalhos.findIndex(c => c.includes('realizada'));
         const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
         const idxResp = cabecalhos.findIndex(c => c.includes('responsabilidade'));
+        const idxOdd = cabecalhos.findIndex(c => c.includes('probabilidades') || c.includes('odd'));
 
         let agrupador = {};
 
@@ -55,6 +56,7 @@ async function carregarDadosDoGitHub() {
             const dataHora = colunas[idxData].replace(/["']/g, '').trim();
             const lucro = tratarValor(colunas[idxLucro]);
             const resp = idxResp !== -1 ? tratarValor(colunas[idxResp]) : 0;
+            const odd = idxOdd !== -1 ? tratarValor(colunas[idxOdd]) : 0;
             
             // Extração de dados da data
             let dataLimpa = dataHora;
@@ -73,10 +75,12 @@ async function carregarDadosDoGitHub() {
             const chave = `${mercado}|${dataHora}`;
 
             if (!agrupador[chave]) {
-                agrupador[chave] = { mercado, data: dataHora, dataLimpa, ano, mes, pnl: 0, resp: 0 };
+                agrupador[chave] = { mercado, data: dataHora, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
             }
             agrupador[chave].pnl += lucro;
             agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
+            // Captura a maior Odd (geralmente reflete a entrada principal, seja Lay ou Back)
+            agrupador[chave].odd = Math.max(agrupador[chave].odd, odd);
         }
 
         todasOperacoes = Object.values(agrupador);
@@ -108,7 +112,7 @@ function aplicarFiltros() {
     const fData = document.getElementById('filtro-data').value;
     const fGrafico = document.getElementById('tipo-grafico').value;
 
-    // Traduz o número do HTML para o texto que vem no CSV da Betfair
+																	  
     const mesesMap = {
         "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun",
         "6": "jul", "7": "ago", "8": "set", "9": "out", "10": "nov", "11": "dez"
@@ -123,7 +127,7 @@ function aplicarFiltros() {
         return condEstrat && condAno && condMes && condData;
     });
 
-    // Atualiza KPIs
+					
     const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
     document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
     document.getElementById('lucro').style.color = lucroLiquido >= 0 ? 'green' : 'red';
@@ -143,7 +147,7 @@ function renderizarGrafico(lista, tipoGrafico) {
     
     if (chart) chart.destroy();
 
-    // Agrupa por DATA (eixo X)
+							   
     let agrupadoPorData = {};
     lista.forEach(o => {
         if(!agrupadoPorData[o.dataLimpa]) agrupadoPorData[o.dataLimpa] = 0;
@@ -180,12 +184,12 @@ function renderizarGrafico(lista, tipoGrafico) {
             responsive: true,
             maintainAspectRatio: false,
             layout: {
-                padding: { top: 30 } // Empurra o gráfico para baixo, abrindo espaço no teto
+                padding: { top: 30 }
             },
             scales: {
                 y: {
                     beginAtZero: true,
-                    grace: '20%' // O SEGREDO: Dá 20% de espaço extra no topo da escala Y
+                    grace: '20%'
                 }
             },
             plugins: { 
@@ -194,7 +198,7 @@ function renderizarGrafico(lista, tipoGrafico) {
                     align: 'top', 
                     formatter: v => 'R$ ' + v.toFixed(2),
                     font: { weight: 'bold', size: 11 },
-                    padding: { bottom: 10 } // Empurra o rótulo levemente para cima da barra
+                    padding: { bottom: 10 }
                 } 
             }
         }
@@ -207,7 +211,19 @@ function atualizarTabela(lista) {
     corpo.innerHTML = "";
     lista.slice().reverse().forEach(op => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td style="padding:10px; font-size: 13px;">${op.mercado}</td><td style="padding:10px; font-size: 13px;">${op.data}</td><td style="padding:10px; font-size: 13px;">${op.resp > 0 ? 'R$ '+op.resp.toFixed(2) : '-'}</td><td style="padding:10px; font-size: 13px; color:${op.pnl >= 0 ? 'green':'red'}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>`;
+        
+        // Formata a ODD para exibir 2 casas decimais (ex: 1.50)
+        const oddFormatada = op.odd > 0 ? op.odd.toFixed(2) : '-';
+        const respFormatada = op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-';
+        const corLucro = op.pnl >= 0 ? 'green' : 'red';
+        
+        tr.innerHTML = `
+            <td style="padding:10px; font-size: 13px;">${op.mercado}</td>
+            <td style="padding:10px; font-size: 13px;">${op.data}</td>
+            <td style="padding:10px; font-size: 13px; font-weight: bold; color: #1e40af;">${oddFormatada}</td>
+            <td style="padding:10px; font-size: 13px;">${respFormatada}</td>
+            <td style="padding:10px; font-size: 13px; color:${corLucro}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>
+        `;
         corpo.appendChild(tr);
     });
 }
