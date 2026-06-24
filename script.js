@@ -162,13 +162,14 @@ function renderizarGrafico(lista, tipoGrafico) {
 
     const isLine = tipoGrafico === 'line';
     const dadosFinais = isLine ? saldoAcumulado : valoresIndividuais;
-    const nomeLabel = isLine ? 'Saldo Acumulado / Evolução da Banca (R$)' : 'Lucro/Prejuízo Diário (R$)';
+    const nomeLabel = isLine ? 'Saldo Acumulado (R$)' : 'Lucro/Prejuízo Diário (R$)';
 
     const bgColors = isLine ? 'rgba(54, 162, 235, 0.2)' : valoresIndividuais.map(v => v >= 0 ? '#4bc0c0' : '#ff6384');
     const bdColors = isLine ? '#36a2eb' : valoresIndividuais.map(v => v >= 0 ? '#4bc0c0' : '#ff6384');
 
     chart = new Chart(ctx, {
         type: tipoGrafico,
+        plugins: [ChartDataLabels], // Ativa o plugin de rótulos de dados
         data: {
             labels: labels,
             datasets: [{
@@ -183,17 +184,30 @@ function renderizarGrafico(lista, tipoGrafico) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false, // Permite que ele respeite a altura do container sem distorcer
+            layout: {
+                padding: {
+                    top: 25 // Espaço extra no topo para o texto do rótulo não cortar
+                }
+            },
             scales: { 
-                y: { 
-                    beginAtZero: false 
-                } 
+                y: { beginAtZero: false } 
             },
             plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return `${context.dataset.label}: R$ ${context.raw.toFixed(2)}`;
-                        }
+                legend: { display: true },
+                tooltip: { enabled: true },
+                // Configuração detalhada dos rótulos em cima das colunas/pontos
+                datalabels: {
+                    align: 'top',
+                    anchor: 'end',
+                    offset: 4,
+                    font: { weight: 'bold', size: 11 },
+                    color: function(context) {
+                        // Linha usa azul escuro, barras usam a cor do próprio bloco
+                        return isLine ? '#1e3a8a' : (context.dataset.data[context.dataIndex] >= 0 ? '#115e59' : '#991b1b');
+                    },
+                    formatter: function(value) {
+                        return 'R$ ' + value.toFixed(2);
                     }
                 }
             }
