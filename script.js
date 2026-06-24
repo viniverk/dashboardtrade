@@ -23,32 +23,38 @@ async function carregarDadosDoGitHub() {
         
         let lucroMO = 0; // Resultado da partida
         let lucroLG = 0; // Placar correto
-        let operacoesLista = []; // Guarda as apostas estruturadas para a tabela
+        let operacoesLista = []; 
 
         const linhas = text.split('\n');
         
         for (let i = 1; i < linhas.length; i++) {
-            if (!linhas[i].trim()) continue;
+            const linhaLimpa = linhas[i].trim();
+            if (!linhaLimpa) continue;
 
-            const colunas = linhas[i].split(',');
-            if (colunas.length < 4) continue;
+            // Lógica à prova de falhas: Extrai os dados de trás para frente.
+            // O Regex isola as 3 últimas colunas separadas por vírgula, e deixa o resto todo como Mercado.
+            const match = linhaLimpa.match(/(.*),([^,]+),([^,]+),([^,]+)$/);
+            
+            // Se for o cabeçalho ou linha inválida, pula.
+            if (!match || match[1].toLowerCase().includes("mercado")) continue;
 
-            const mercadoOriginal = colunas[0];
+            // match[1] = Mercado, match[2] = Hora de inicio, match[3] = Data resolucao, match[4] = Lucro
+            const mercadoOriginal = match[1].replace(/["']/g, ''); // Tira aspas extras se tiver
             const mercadoLower = mercadoOriginal.toLowerCase();
-            const horaInicio = colunas[1];
-            const dataResolucao = colunas[2];
-            const resultado = parseFloat(colunas[3]);
+            const horaInicio = match[2];
+            const dataResolucao = match[3];
+            const resultado = parseFloat(match[4]);
 
             if (isNaN(resultado)) continue;
 
-            // Filtra e acumula os valores por mercado para o gráfico
+            // Separa os lucros pelas estratégias
             if (mercadoLower.includes("resultado da partida")) {
                 lucroMO += resultado;
             } else if (mercadoLower.includes("placar correto")) {
                 lucroLG += resultado;
             }
 
-            // Salva na lista para montar a tabela de operações
+            // Guarda na lista para a tabela
             operacoesLista.push({
                 mercado: mercadoOriginal,
                 inicio: horaInicio,
@@ -57,10 +63,10 @@ async function carregarDadosDoGitHub() {
             });
         }
 
-        // Calcula o lucro líquido descontando o streaming (R$ 150,00)
+        // Calcula o lucro líquido descontando o custo fixo de R$ 150,00
         const lucroTotalLiquido = (lucroMO + lucroLG) - 150.00;
         
-        // Atualiza os KPIs na interface
+        // Atualiza o painel
         const displayLucro = document.getElementById('lucro');
         if (displayLucro) displayLucro.innerText = `R$ ${lucroTotalLiquido.toFixed(2)}`;
         
@@ -70,7 +76,6 @@ async function carregarDadosDoGitHub() {
             riscoStatus.style.color = "green";
         }
 
-        // Renderiza o Gráfico e monta a tabela de apostas
         const canvas = document.getElementById('meuGrafico');
         if (canvas) renderizarGrafico(lucroMO, lucroLG);
         
@@ -102,18 +107,16 @@ function renderizarGrafico(valMO, valLG) {
     });
 }
 
-// NOVO: Função que desenha as apostas na tabela do HTML
 function atualizarTabela(lista) {
     const corpoTabela = document.getElementById('corpo-tabela');
     if (!corpoTabela) return;
 
-    corpoTabela.innerHTML = ""; // Limpa a tabela antes de preencher
+    corpoTabela.innerHTML = ""; 
 
     lista.forEach(op => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid #eee";
 
-        // Define a cor com base no resultado (Green ou Red)
         const corValor = op.pnl >= 0 ? "green" : "red";
         const sinal = op.pnl >= 0 ? "+" : "";
 
@@ -129,7 +132,6 @@ function atualizarTabela(lista) {
     });
 }
 
-// Configuração do botão de Login com Google
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then(() => {
         document.getElementById('auth-container').style.display = 'none';
