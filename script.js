@@ -10,76 +10,54 @@ const firebaseConfig = {
   appId: "1:911731188311:web:fcdc39a0557d471fb8f912"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+initializeApp(firebaseConfig);
+const auth = getAuth();
 const provider = new GoogleAuthProvider();
+let chart;
 
-const btnLogin = document.getElementById('btn-login');
-const dashboard = document.getElementById('dashboard');
-const authContainer = document.getElementById('auth-container');
-const inputCSV = document.getElementById('csvFile');
-
-btnLogin.addEventListener('click', () => {
-    signInWithPopup(auth, provider)
-    .then(() => {
-        authContainer.style.display = 'none';
-        dashboard.style.display = 'block';
-    })
-    .catch((error) => console.error("Erro no login:", error));
-});
-
-inputCSV.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const text = e.target.result;
+// Função que busca e processa o CSV automaticamente
+async function carregarDadosDoGitHub() {
+    const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv";
+    try {
+        const response = await fetch(url);
+        const text = await response.text();
+        
+        let lucroMO = 0; // Match Odds
+        let lucroLG = 0; // Lay Goleada
         const linhas = text.split('\n');
-        let lucroTotal = 0;
-        let teveEntradaComRiscoAlto = false;
 
         for (let i = 1; i < linhas.length; i++) {
-            // Tenta separar por ; primeiro, se não achar, separa por ,
             let colunas = linhas[i].includes(';') ? linhas[i].split(';') : linhas[i].split(',');
-            
             if (colunas.length < 4) continue;
 
-            // Ajuste os índices [2] e [3] se necessário após verificar o Console (F12)
-            const resultado = parseFloat(colunas[2].replace(',', '.')); 
-            const responsabilidade = parseFloat(colunas[3].replace(',', '.'));
+            const mercado = colunas[1] ? colunas[1].toLowerCase() : "";
+            const resultado = parseFloat(colunas[2].replace(',', '.'));
 
-            if (!isNaN(resultado)) lucroTotal += resultado;
-            if (!isNaN(responsabilidade) && responsabilidade > 27.00) {
-                teveEntradaComRiscoAlto = true;
-            }
+            if (mercado.includes("match odds")) lucroMO += resultado;
+            else if (mercado.includes("lay goleada") || mercado.includes("correct score")) lucroLG += resultado;
         }
 
-        const lucroLiquido = lucroTotal - 150.00;
-        document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
-        
-        const riscoStatus = document.getElementById('risco-status');
-        riscoStatus.innerText = teveEntradaComRiscoAlto ? "ALERTA: Gestão de risco agressiva!" : "Gestão de risco OK";
-        riscoStatus.style.color = teveEntradaComRiscoAlto ? "red" : "green";
-    };
-    reader.readAsText(file);
-});
-let chart; // variável global para o gráfico
+        document.getElementById('lucro').innerText = `R$ ${(lucroMO + lucroLG - 150).toFixed(2)}`;
+        renderizarGrafico(lucroMO, lucroLG);
+    } catch (error) { console.error("Erro ao carregar:", error); }
+}
 
-function atualizarGrafico(lucroEstrategiaA, lucroEstrategiaB) {
+function renderizarGrafico(valA, valB) {
     const ctx = document.getElementById('meuGrafico').getContext('2d');
-    
-    if (chart) chart.destroy(); // Limpa gráfico anterior se existir
-    
+    if (chart) chart.destroy();
     chart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: ['Match Odds', 'Lay Goleada'],
-            datasets: [{
-                label: 'Lucro por Estratégia (R$)',
-                data: [lucroEstrategiaA, lucroEstrategiaB],
-                backgroundColor: ['#36a2eb', '#ff6384']
-            }]
+            datasets: [{ label: 'Lucro (R$)', data: [valA, valB], backgroundColor: ['#36a2eb', '#ff6384'] }]
         }
     });
 }
+
+document.getElementById('btn-login').addEventListener('click', () => {
+    signInWithPopup(auth, provider).then(() => {
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        carregarDadosDoGitHub(); // Carrega automaticamente após login
+    });
+});
