@@ -17,9 +17,9 @@ const provider = new GoogleAuthProvider();
 let todasOperacoes = [];
 let chart;
 
-										 
 Chart.register(ChartDataLabels);
 
+// Função para tratar valores (converte "(12.29)" em "-12.29")
 function tratarValor(valor) {
     if (!valor) return 0;
     let s = valor.toString().replace(/["'\sR$]/g, '');
@@ -37,24 +37,27 @@ async function carregarDadosDoGitHub() {
         const linhas = text.split('\n');
         
         const cabecalhos = linhas[0].toLowerCase().split(',');
+        
+        // Procura estritamente pelos cabeçalhos em português conforme a sua imagem
         const idxMercado = cabecalhos.findIndex(c => c.includes('mercado'));
-        const idxData = cabecalhos.findIndex(c => c.includes('realizada'));
-        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
+        const idxData = cabecalhos.findIndex(c => c.includes('aposta realizada'));
+        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro/prejuízo') || c.includes('lucro'));
         const idxResp = cabecalhos.findIndex(c => c.includes('responsabilidade'));
-        const idxOdd = cabecalhos.findIndex(c => c.includes('probabilidades') || c.includes('odd'));
+        const idxOdd = cabecalhos.findIndex(c => c.includes('média de probabilidades correspondidas') || c.includes('probabilidades req') || c.includes('probabilidades'));
 
         let agrupador = {};
 
         for (let i = 1; i < linhas.length; i++) {
             const linha = linhas[i].trim();
+            // Ignora a linha de sumário da Betfair no final do ficheiro
             if (!linha || linha.toLowerCase().includes("apostas correspondidas")) continue;
 
             const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             if (colunas.length <= Math.max(idxMercado, idxLucro)) continue;
 
-            const mercado = colunas[idxMercado].replace(/["']/g, '').trim();
-            const dataHora = colunas[idxData].replace(/["']/g, '').trim();
-            const lucro = tratarValor(colunas[idxLucro]);
+            const mercado = colunas[idxMercado] ? colunas[idxMercado].replace(/["']/g, '').trim() : "Desconhecido";
+            const dataHora = idxData !== -1 ? colunas[idxData].replace(/["']/g, '').trim() : "Sem data";
+            const lucro = idxLucro !== -1 ? tratarValor(colunas[idxLucro]) : 0;
             const resp = idxResp !== -1 ? tratarValor(colunas[idxResp]) : 0;
             const odd = idxOdd !== -1 ? tratarValor(colunas[idxOdd]) : 0;
             
@@ -64,7 +67,7 @@ async function carregarDadosDoGitHub() {
             let mes = "Todos";
 
             if (dataHora.includes('-')) {
-                dataLimpa = dataHora.split(' ')[0]; // ex: "23-jun-26"
+                dataLimpa = dataHora.split(' ')[0]; // ex: "16-jun-26"
                 const partesData = dataLimpa.split('-');
                 if (partesData.length === 3) {
                     ano = "20" + partesData[2];
@@ -74,12 +77,12 @@ async function carregarDadosDoGitHub() {
 
             const chave = `${mercado}|${dataHora}`;
 
+            // Agrupa pelo mercado e data para consolidar entradas (Lay) e saídas (Back)
             if (!agrupador[chave]) {
                 agrupador[chave] = { mercado, data: dataHora, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
             }
             agrupador[chave].pnl += lucro;
             agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
-            // Captura a maior Odd (geralmente reflete a entrada principal, seja Lay ou Back)
             agrupador[chave].odd = Math.max(agrupador[chave].odd, odd);
         }
 
@@ -112,7 +115,6 @@ function aplicarFiltros() {
     const fData = document.getElementById('filtro-data').value;
     const fGrafico = document.getElementById('tipo-grafico').value;
 
-																	  
     const mesesMap = {
         "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun",
         "6": "jul", "7": "ago", "8": "set", "9": "out", "10": "nov", "11": "dez"
@@ -120,14 +122,16 @@ function aplicarFiltros() {
     const mesBuscado = mesesMap[fMes];
 
     const filtradas = todasOperacoes.filter(op => {
-        const condEstrat = (fEstrat === 'TODAS' || (fEstrat === 'MO' && op.mercado.includes('Resultado')) || (fEstrat === 'LG' && op.mercado.includes('Placar')));
+        // Filtra considerando os termos em português contidos na coluna Mercado
+        const condEstrat = (fEstrat === 'TODAS' || 
+                           (fEstrat === 'MO' && op.mercado.toLowerCase().includes('resultado')) || 
+                           (fEstrat === 'LG' && op.mercado.toLowerCase().includes('placar')));
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
         const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
         const condData = (fData === 'TODAS' || op.dataLimpa === fData);
         return condEstrat && condAno && condMes && condData;
     });
 
-					
     const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
     document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
     document.getElementById('lucro').style.color = lucroLiquido >= 0 ? 'green' : 'red';
@@ -147,14 +151,20 @@ function renderizarGrafico(lista, tipoGrafico) {
     
     if (chart) chart.destroy();
 
-							   
     let agrupadoPorData = {};
     lista.forEach(o => {
         if(!agrupadoPorData[o.dataLimpa]) agrupadoPorData[o.dataLimpa] = 0;
         agrupadoPorData[o.dataLimpa] += o.pnl;
     });
 
-    const labels = Object.keys(agrupadoPorData).sort();
+    // Ordenação correta pelas datas (ex: 16-jun-26)
+    const labels = Object.keys(agrupadoPorData).sort((a, b) => {
+        const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+        const valA = new Date("20" + a.split('-')[2], meses.indexOf(a.split('-')[1].toLowerCase()), a.split('-')[0]);
+        const valB = new Date("20" + b.split('-')[2], meses.indexOf(b.split('-')[1].toLowerCase()), b.split('-')[0]);
+        return valA - valB;
+    });
+    
     const valoresDiarios = labels.map(l => agrupadoPorData[l]);
 
     let dadosParaGrafico = valoresDiarios;
@@ -212,7 +222,6 @@ function atualizarTabela(lista) {
     lista.slice().reverse().forEach(op => {
         const tr = document.createElement('tr');
         
-        // Formata a ODD para exibir 2 casas decimais (ex: 1.50)
         const oddFormatada = op.odd > 0 ? op.odd.toFixed(2) : '-';
         const respFormatada = op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-';
         const corLucro = op.pnl >= 0 ? 'green' : 'red';
