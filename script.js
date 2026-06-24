@@ -16,7 +16,6 @@ const provider = new GoogleAuthProvider();
 let chart;
 let todasOperacoes = [];
 
-// Transforma a data da Betfair ("23-jun-26") em dados estruturados
 function parseDataBetfair(dataString) {
     const partes = dataString.split(' ')[0].split('-');
     if (partes.length !== 3) return null;
@@ -31,12 +30,11 @@ function parseDataBetfair(dataString) {
         dataObj: new Date(ano, mesNum, dia), 
         dataStr: `${dia}/${String(mesNum+1).padStart(2, '0')}/${ano}`, 
         ano: ano,
-        mesStrNum: String(mesNum) // '0' para Jan, '5' para Jun
+        mesStrNum: String(mesNum)
     };
 }
 
 async function carregarDadosDoGitHub() {
-    // O timestamp no final obriga o navegador a ignorar o cache e buscar o ficheiro mais recente
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
     
     try {
@@ -45,6 +43,9 @@ async function carregarDadosDoGitHub() {
         const linhas = text.split('\n');
         
         todasOperacoes = [];
+        
+        // NOVO: Memória temporária para identificar e bloquear entradas duplicadas
+        const operacoesProcessadas = new Set();
 
         for (let i = 1; i < linhas.length; i++) {
             const linhaLimpa = linhas[i].trim();
@@ -53,12 +54,21 @@ async function carregarDadosDoGitHub() {
             let colunas = linhaLimpa.split(',');
             if (colunas.length < 4) continue;
 
-            // Extração de trás para a frente para evitar erros com vírgulas no nome das equipas
             const resultadoTexto = colunas.pop().replace(/["']/g, ''); 
             const dataResolucao = colunas.pop().replace(/["']/g, '');  
             const horaInicio = colunas.pop().replace(/["']/g, '');     
             const mercadoOriginal = colunas.join(',').replace(/["']/g, ''); 
             
+            // NOVO: Criação da "Chave Única" da aposta
+            const chaveUnica = `${mercadoOriginal}|${horaInicio}|${dataResolucao}|${resultadoTexto}`;
+
+            // NOVO: Se a aposta já existir na memória, é duplicada. Pula para a próxima linha.
+            if (operacoesProcessadas.has(chaveUnica)) {
+                continue;
+            }
+            // Caso seja nova, adiciona à memória para proteger contra futuras duplicidades do mesmo arquivo
+            operacoesProcessadas.add(chaveUnica);
+
             const mercadoLower = mercadoOriginal.toLowerCase();
             const resultado = parseFloat(resultadoTexto);
 
@@ -84,18 +94,16 @@ async function carregarDadosDoGitHub() {
             });
         }
 
-        // Ordena tudo de forma cronológica (do mais antigo para o mais recente)
         todasOperacoes.sort((a, b) => a.dataObj - b.dataObj);
         
         preencherFiltrosDinamicos();
         aplicarFiltros();
         
     } catch (error) { 
-        console.error("Erro ao carregar ficheiro CSV:", error); 
+        console.error("Erro ao carregar o arquivo CSV:", error); 
     }
 }
 
-// Preenche os menus "Ano" e "Data" automaticamente com base no ficheiro CSV
 function preencherFiltrosDinamicos() {
     const selectAno = document.getElementById('filtro-ano');
     const selectData = document.getElementById('filtro-data');
@@ -110,7 +118,6 @@ function preencherFiltrosDinamicos() {
     datasUnicas.forEach(data => selectData.innerHTML += `<option value="${data}">${data}</option>`);
 }
 
-// Núcleo de Filtros: Cruza os dados e atualiza os KPIs, Tabela e Gráficos
 function aplicarFiltros() {
     const fEstrat = document.getElementById('filtro-estrategia').value;
     const fAno = document.getElementById('filtro-ano').value;
@@ -126,7 +133,6 @@ function aplicarFiltros() {
         return condEstrat && condAno && condMes && condData;
     });
 
-    // 1. Atualiza o KPI de Lucro Líquido
     const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
     const lucroElem = document.getElementById('lucro');
     if (lucroElem) {
@@ -134,19 +140,14 @@ function aplicarFiltros() {
         lucroElem.style.color = lucroLiquido >= 0 ? 'green' : 'red';
     }
 
-    // 2. Atualiza a Tabela (reverte para mostrar a mais recente no topo)
     atualizarTabela(filtradas.slice().reverse()); 
-
-    // 3. Atualiza o Gráfico com a lógica de Saldo Acumulado
     renderizarGrafico(filtradas, fGrafico);
 }
 
-// Renderiza o gráfico: Evolução da Banca (Linha) ou Lucro Individual (Barra)
 function renderizarGrafico(lista, tipoGrafico) {
     const ctx = document.getElementById('meuGrafico').getContext('2d');
     if (chart) chart.destroy();
 
-    // 1. Agrupa primeiro o lucro individual de cada dia (garantindo a ordem cronológica)
     let lucroPorDia = {};
     lista.forEach(o => {
         if(!lucroPorDia[o.dataStr]) lucroPorDia[o.dataStr] = 0;
@@ -156,7 +157,6 @@ function renderizarGrafico(lista, tipoGrafico) {
     const labels = Object.keys(lucroPorDia); 
     const valoresIndividuais = Object.values(lucroPorDia);
 
-    // 2. Transforma os lucros diários em SALDO ACUMULADO (A curva da banca)
     let saldoAcumulado = [];
     let somaAcumulada = 0;
     
@@ -165,7 +165,6 @@ function renderizarGrafico(lista, tipoGrafico) {
         saldoAcumulado.push(parseFloat(somaAcumulada.toFixed(2)));
     });
 
-    // 3. Configura a visualização com base na escolha (Linha ou Barra)
     const isLine = tipoGrafico === 'line';
     const dadosFinais = isLine ? saldoAcumulado : valoresIndividuais;
     const nomeLabel = isLine ? 'Saldo Acumulado / Evolução da Banca (R$)' : 'Lucro/Prejuízo Diário (R$)';
@@ -183,15 +182,15 @@ function renderizarGrafico(lista, tipoGrafico) {
                 backgroundColor: bgColors,
                 borderColor: bdColors,
                 borderWidth: 2,
-                fill: isLine, // Preenchimento sombreado sob a linha
-                tension: 0.2  // Curvatura suave na linha
+                fill: isLine,
+                tension: 0.2
             }]
         },
         options: {
             responsive: true,
             scales: { 
                 y: { 
-                    beginAtZero: false // Permite que o gráfico suba/desça livremente de acordo com a banca
+                    beginAtZero: false 
                 } 
             },
             plugins: {
@@ -207,7 +206,6 @@ function renderizarGrafico(lista, tipoGrafico) {
     });
 }
 
-// Desenha a listagem no ecrã
 function atualizarTabela(lista) {
     const corpoTabela = document.getElementById('corpo-tabela');
     if (!corpoTabela) return;
@@ -230,7 +228,6 @@ function atualizarTabela(lista) {
     });
 }
 
-// Configura os gatilhos: Qualquer mudança numa das caixas recarrega os dados imediatamente
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
     const elemento = document.getElementById(id);
     if(elemento) {
@@ -238,7 +235,6 @@ function atualizarTabela(lista) {
     }
 });
 
-// Evento do botão de login
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then(() => {
         document.getElementById('auth-container').style.display = 'none';
