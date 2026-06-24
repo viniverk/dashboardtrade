@@ -19,7 +19,6 @@ let chart;
 
 Chart.register(ChartDataLabels);
 
-// Função para tratar valores (converte "(12.29)" em "-12.29")
 function tratarValor(valor) {
     if (!valor) return 0;
     let s = valor.toString().replace(/["'\sR$]/g, '');
@@ -27,6 +26,13 @@ function tratarValor(valor) {
     const num = parseFloat(s.replace(',', '.'));
     return isNaN(num) ? 0 : num;
 }
+
+// Mapa global de meses para suportar datas em PT e EN
+const monthOrder = {
+    "jan": 0, "feb": 1, "fev": 1, "mar": 2, "apr": 3, "abr": 3, "may": 4, "mai": 4,
+    "jun": 5, "jul": 6, "aug": 7, "ago": 7, "sep": 8, "set": 8, "oct": 9, "out": 9,
+    "nov": 10, "dec": 11, "dez": 11
+};
 
 async function carregarDadosDoGitHub() {
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
@@ -38,36 +44,42 @@ async function carregarDadosDoGitHub() {
         
         const cabecalhos = linhas[0].toLowerCase().split(',');
         
-        // Procura estritamente pelos cabeçalhos em português conforme a sua imagem
-        const idxMercado = cabecalhos.findIndex(c => c.includes('mercado'));
-        const idxData = cabecalhos.findIndex(c => c.includes('aposta realizada'));
-        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro/prejuízo') || c.includes('lucro'));
-        const idxResp = cabecalhos.findIndex(c => c.includes('responsabilidade'));
-        const idxOdd = cabecalhos.findIndex(c => c.includes('média de probabilidades correspondidas') || c.includes('probabilidades req') || c.includes('probabilidades'));
+        // Mapeamento Bilíngue: Busca as colunas do padrão novo (Inglês) e do antigo (Português)
+        const idxEvent = cabecalhos.findIndex(c => c.includes('event') || c === 'evento');
+        const idxMarket = cabecalhos.findIndex(c => c.includes('market') || c === 'mercado');
+        const idxData = cabecalhos.findIndex(c => c.includes('bet placed') || c.includes('aposta realizada') || c.includes('realizada'));
+        const idxLucro = cabecalhos.findIndex(c => c.includes('profit/loss') || c.includes('lucro/prejuízo') || c.includes('lucro'));
+        const idxResp = cabecalhos.findIndex(c => c.includes('liability') || c.includes('responsabilidade'));
+        const idxOdd = cabecalhos.findIndex(c => c.includes('avg. odds matched') || c.includes('média de probabilidades correspondidas') || c.includes('probabilidades req'));
 
         let agrupador = {};
 
         for (let i = 1; i < linhas.length; i++) {
             const linha = linhas[i].trim();
-            // Ignora a linha de sumário da Betfair no final do ficheiro
-            if (!linha || linha.toLowerCase().includes("apostas correspondidas")) continue;
+            if (!linha || linha.toLowerCase().includes("apostas correspondidas") || linha.toLowerCase().includes("matched bets")) continue;
 
             const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            if (colunas.length <= Math.max(idxMercado, idxLucro)) continue;
+            if (colunas.length <= Math.max(idxMarket, idxLucro)) continue;
 
-            const mercado = colunas[idxMercado] ? colunas[idxMercado].replace(/["']/g, '').trim() : "Desconhecido";
+            // Une o Evento e o Mercado para ficar legível na tabela (ex: Argentina x Argélia / Match Odds)
+            let mercadoNome = "Desconhecido";
+            if (idxEvent !== -1 && idxMarket !== -1 && colunas[idxEvent] && colunas[idxMarket]) {
+                mercadoNome = `${colunas[idxEvent].replace(/["']/g, '').trim()} / ${colunas[idxMarket].replace(/["']/g, '').trim()}`;
+            } else if (idxMarket !== -1 && colunas[idxMarket]) {
+                mercadoNome = colunas[idxMarket].replace(/["']/g, '').trim();
+            }
+
             const dataHora = idxData !== -1 ? colunas[idxData].replace(/["']/g, '').trim() : "Sem data";
             const lucro = idxLucro !== -1 ? tratarValor(colunas[idxLucro]) : 0;
             const resp = idxResp !== -1 ? tratarValor(colunas[idxResp]) : 0;
             const odd = idxOdd !== -1 ? tratarValor(colunas[idxOdd]) : 0;
             
-            // Extração de dados da data
             let dataLimpa = dataHora;
             let ano = "Todos";
             let mes = "Todos";
 
             if (dataHora.includes('-')) {
-                dataLimpa = dataHora.split(' ')[0]; // ex: "16-jun-26"
+                dataLimpa = dataHora.split(' ')[0]; // ex: "16-jun-26" ou "16-Jun-26"
                 const partesData = dataLimpa.split('-');
                 if (partesData.length === 3) {
                     ano = "20" + partesData[2];
@@ -75,11 +87,10 @@ async function carregarDadosDoGitHub() {
                 }
             }
 
-            const chave = `${mercado}|${dataHora}`;
+            const chave = `${mercadoNome}|${dataHora}`;
 
-            // Agrupa pelo mercado e data para consolidar entradas (Lay) e saídas (Back)
             if (!agrupador[chave]) {
-                agrupador[chave] = { mercado, data: dataHora, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
+                agrupador[chave] = { mercado: mercadoNome, data: dataHora, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
             }
             agrupador[chave].pnl += lucro;
             agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
@@ -96,7 +107,7 @@ async function carregarDadosDoGitHub() {
 
 function preencherFiltrosDinamicos() {
     const anos = [...new Set(todasOperacoes.map(o => o.ano))].filter(a => a !== "Todos").sort();
-    const datas = [...new Set(todasOperacoes.map(o => o.dataLimpa))].filter(d => d !== "Sem Data").sort();
+    const datas = [...new Set(todasOperacoes.map(o => o.dataLimpa))].filter(d => d !== "Sem data").sort();
     
     const selAno = document.getElementById('filtro-ano');
     const selData = document.getElementById('filtro-data');
@@ -115,20 +126,24 @@ function aplicarFiltros() {
     const fData = document.getElementById('filtro-data').value;
     const fGrafico = document.getElementById('tipo-grafico').value;
 
-    const mesesMap = {
-        "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun",
-        "6": "jul", "7": "ago", "8": "set", "9": "out", "10": "nov", "11": "dez"
-    };
-    const mesBuscado = mesesMap[fMes];
+    const mesesPT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const mesesEN = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    
+    const mesBuscadoPT = mesesPT[fMes];
+    const mesBuscadoEN = mesesEN[fMes];
 
     const filtradas = todasOperacoes.filter(op => {
-        // Filtra considerando os termos em português contidos na coluna Mercado
+        const mercLower = op.mercado.toLowerCase();
+        
+        // Filtra considerando os termos em PT ou EN do CSV da Betfair
         const condEstrat = (fEstrat === 'TODAS' || 
-                           (fEstrat === 'MO' && op.mercado.toLowerCase().includes('resultado')) || 
-                           (fEstrat === 'LG' && op.mercado.toLowerCase().includes('placar')));
+                           (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('match odds'))) || 
+                           (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
+                           
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
-        const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
+        const condMes = (fMes === 'TODOS' || op.mes === mesBuscadoPT || op.mes === mesBuscadoEN);
         const condData = (fData === 'TODAS' || op.dataLimpa === fData);
+        
         return condEstrat && condAno && condMes && condData;
     });
 
@@ -157,11 +172,12 @@ function renderizarGrafico(lista, tipoGrafico) {
         agrupadoPorData[o.dataLimpa] += o.pnl;
     });
 
-    // Ordenação correta pelas datas (ex: 16-jun-26)
+    // Ordenação robusta que suporta meses em Inglês e Português
     const labels = Object.keys(agrupadoPorData).sort((a, b) => {
-        const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-        const valA = new Date("20" + a.split('-')[2], meses.indexOf(a.split('-')[1].toLowerCase()), a.split('-')[0]);
-        const valB = new Date("20" + b.split('-')[2], meses.indexOf(b.split('-')[1].toLowerCase()), b.split('-')[0]);
+        const numMesA = monthOrder[a.split('-')[1].toLowerCase()];
+        const numMesB = monthOrder[b.split('-')[1].toLowerCase()];
+        const valA = new Date("20" + a.split('-')[2], numMesA, a.split('-')[0]);
+        const valB = new Date("20" + b.split('-')[2], numMesB, b.split('-')[0]);
         return valA - valB;
     });
     
