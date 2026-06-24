@@ -16,7 +16,7 @@ const provider = new GoogleAuthProvider();
 let chart;
 let todasOperacoes = [];
 
-// Converte valores da Betfair: (12.29) vira -12.29 e 17.86 vira 17.86
+// Função que trata números e parênteses da Betfair
 function parseBetfairNumber(str) {
     if (!str) return NaN;
     str = str.replace(/["'\sR$]/g, '');
@@ -35,35 +35,28 @@ async function carregarDadosDoGitHub() {
         const linhas = text.split('\n');
         
         todasOperacoes = [];
-        const operacoesProcessadas = new Set();
 
-        // Regex para separar vírgulas ignorando as que estão dentro de aspas
-        const regexCSV = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
-
+        // Ignoramos as linhas que contêm avisos da Betfair
         for (let i = 1; i < linhas.length; i++) {
-            const linhaLimpa = linhas[i].trim();
-            if (!linhaLimpa) continue;
+            let linha = linhas[i].trim();
+            if (!linha || linha.includes("Todas as apostas") || linha.includes("Todas as horas")) continue;
 
-            const colunas = linhaLimpa.split(regexCSV).map(c => c.trim().replace(/["']/g, ''));
-            
-            // O seu CSV novo tem colunas específicas. Ajuste os índices conforme a ordem do seu arquivo:
-            // Exemplo: Mercado=0, Data=2, Responsabilidade=7, Lucro=8
-            const mercado = colunas[0];
-            const dataAposta = colunas[2];
+            const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            if (colunas.length < 9) continue; // Garante que a linha tem dados suficientes
+
+            const mercado = colunas[0].replace(/["']/g, '');
+            const dataHora = colunas[4]; // Ajuste conforme a coluna de data/hora
             const responsabilidade = parseBetfairNumber(colunas[7]);
-            const lucro = parseBetfairNumber(colunas[8]);
+            const pnl = parseBetfairNumber(colunas[8]);
 
-            if (isNaN(lucro) || !mercado) continue;
-
-            // Escudo Anti-Duplicidade
-            const chaveUnica = `${mercado}|${dataAposta}|${lucro}`;
-            if (operacoesProcessadas.has(chaveUnica)) continue;
-            operacoesProcessadas.add(chaveUnica);
+            // Se o PnL for 0, é apenas uma entrada ou ajuste, não somamos como lucro ainda
+            // Somamos apenas linhas que indicam movimentação de resultado
+            if (isNaN(pnl)) continue;
 
             todasOperacoes.push({
                 mercado: mercado,
-                data: dataAposta,
-                pnl: lucro,
+                data: dataHora,
+                pnl: pnl,
                 resp: isNaN(responsabilidade) ? 0 : responsabilidade
             });
         }
@@ -75,24 +68,22 @@ async function carregarDadosDoGitHub() {
 }
 
 function aplicarFiltros() {
-    // Calcula Lucro Líquido (Soma direta dos lucros)
+    // Lucro Líquido é a soma de todos os PnLs do arquivo
     const lucroLiquido = todasOperacoes.reduce((acc, op) => acc + op.pnl, 0);
     
-    // Calcula Média de Responsabilidade (Apenas apostas com responsabilidade > 0)
+    // Média de Responsabilidade (Considerando apenas operações de Lay)
     const comResp = todasOperacoes.filter(op => op.resp > 0);
     const mediaResp = comResp.length > 0 ? (comResp.reduce((acc, op) => acc + op.resp, 0) / comResp.length) : 0;
 
     document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
     document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
-
-    atualizarTabela(todasOperacoes.slice().reverse());
+    
+    atualizarTabela(todasOperacoes);
 }
 
 function atualizarTabela(lista) {
     const corpoTabela = document.getElementById('corpo-tabela');
-    if (!corpoTabela) return;
     corpoTabela.innerHTML = ""; 
-
     lista.forEach(op => {
         const tr = document.createElement('tr');
         const corValor = op.pnl >= 0 ? "green" : "red";
