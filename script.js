@@ -14,169 +14,57 @@ initializeApp(firebaseConfig);
 const auth = getAuth();
 const provider = new GoogleAuthProvider();
 
-let todasOperacoes = []; // Fonte de verdade (dados brutos processados)
-let chart;
+let todasOperacoes = [];
+let chartInstance = null;
 
-// Função inteligente de tratamento de valores
-function tratarValor(valor) {
-    if (!valor) return 0;
-    let s = valor.toString().replace(/["'\sR$]/g, '');
-    if (s.startsWith('(') && s.endsWith(')')) s = '-' + s.slice(1, -1);
-    const num = parseFloat(s.replace(',', '.'));
-    return isNaN(num) ? 0 : num;
-}
-
-async function carregarDadosDoGitHub() {
+// Carrega dados do GitHub
+async function carregarDados() {
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
+    const response = await fetch(url);
+    const text = await response.text();
+    const linhas = text.split('\n');
+    const cabecalhos = linhas[0].toLowerCase().split(',');
     
-    try {
-        const response = await fetch(url);
-        const text = await response.text();
-        const linhas = text.split('\n');
+    let agrupador = {};
+    for (let i = 1; i < linhas.length; i++) {
+        const colunas = linhas[i].split(',');
+        if (colunas.length < 4) continue;
         
-        const cabecalhos = linhas[0].toLowerCase().split(',');
-        const idxMercado = cabecalhos.findIndex(c => c.includes('mercado'));
-        const idxData = cabecalhos.findIndex(c => c.includes('realizada'));
-        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
-        const idxResp = cabecalhos.findIndex(c => c.includes('responsabilidade'));
-
-        let agrupador = {};
-
-        for (let i = 1; i < linhas.length; i++) {
-            const linha = linhas[i].trim();
-            if (!linha || linha.toLowerCase().includes("apostas correspondidas")) continue;
-
-            const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            if (colunas.length <= Math.max(idxMercado, idxLucro)) continue;
-
-            const mercado = colunas[idxMercado].replace(/["']/g, '').trim();
-            const dataHora = colunas[idxData].replace(/["']/g, '').trim();
-            const lucro = tratarValor(colunas[idxLucro]);
-            const resp = idxResp !== -1 ? tratarValor(colunas[idxResp]) : 0;
-            
-            // Extrai data limpa para filtro
-            const dataLimpa = dataHora.split(' ')[0]; // "23-jun-26"
-            const ano = "20" + dataLimpa.split('-')[2];
-            const mes = dataLimpa.split('-')[1]; // jun
-
-            const chave = `${mercado}|${dataHora}`;
-
-            if (!agrupador[chave]) {
-                agrupador[chave] = { mercado, data: dataHora, dataLimpa, ano, mes, pnl: 0, resp: 0 };
-            }
-            agrupador[chave].pnl += lucro;
-            agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
-        }
-
-        todasOperacoes = Object.values(agrupador);
+        const mercado = colunas[0].replace(/["']/g, '').trim();
+        const data = colunas[2].replace(/["']/g, '').trim();
+        const pnl = parseFloat(colunas[3].replace(/[^0-9.-]/g, '')) || 0;
         
-        // Preenche menus dinâmicos
-        preencherFiltrosDinamicos();
-        // Renderiza tudo
-        aplicarFiltros();
-        
-    } catch (error) { console.error("Erro:", error); }
-}
-
-function preencherFiltrosDinamicos() {
-    const anos = [...new Set(todasOperacoes.map(o => o.ano))].sort();
-    const datas = [...new Set(todasOperacoes.map(o => o.dataLimpa))].sort();
-    
-    const selAno = document.getElementById('filtro-ano');
-    const selData = document.getElementById('filtro-data');
-    
-    anos.forEach(a => selAno.innerHTML += `<option value="${a}">${a}</option>`);
-    datas.forEach(d => selData.innerHTML += `<option value="${d}">${d}</option>`);
-}
-
-function aplicarFiltros() {
-    const fEstrat = document.getElementById('filtro-estrategia').value;
-    const fAno = document.getElementById('filtro-ano').value;
-    const fMes = document.getElementById('filtro-mes').value;
-    const fData = document.getElementById('filtro-data').value;
-    const fGrafico = document.getElementById('tipo-grafico').value;
-
-    const filtradas = todasOperacoes.filter(op => {
-        const condEstrat = (fEstrat === 'TODAS' || (fEstrat === 'MO' && op.mercado.includes('Resultado')) || (fEstrat === 'LG' && op.mercado.includes('Placar')));
-        const condAno = (fAno === 'TODOS' || op.ano === fAno);
-        const condMes = (fMes === 'TODOS' || op.mes === fMes.toLowerCase().substring(0,3));
-        const condData = (fData === 'TODAS' || op.dataLimpa === fData);
-        return condEstrat && condAno && condMes && condData;
-    });
-
-    // Atualiza KPIs
-    const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
-    document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
-    document.getElementById('lucro').style.color = lucroLiquido >= 0 ? 'green' : 'red';
-
-    const comResp = filtradas.filter(op => op.resp > 0);
-    const mediaResp = comResp.length > 0 ? (comResp.reduce((acc, op) => acc + op.resp, 0) / comResp.length) : 0;
-    document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
-
-    atualizarTabela(filtradas);
-    renderizarGrafico(filtradas, fGrafico);
-}
-
-function renderizarGrafico(lista, tipoGrafico) {
-    const ctx = document.getElementById('meuGrafico').getContext('2d');
-    if (chart) chart.destroy();
-
-    // Agrupa por DATA (eixo X)
-    let agrupadoPorData = {};
-    lista.forEach(o => {
-        if(!agrupadoPorData[o.dataLimpa]) agrupadoPorData[o.dataLimpa] = 0;
-        agrupadoPorData[o.dataLimpa] += o.pnl;
-    });
-
-    const labels = Object.keys(agrupadoPorData).sort();
-    const valoresDiarios = labels.map(l => agrupadoPorData[l]);
-
-    let dadosParaGrafico = valoresDiarios;
-    if (tipoGrafico === 'line') {
-        let saldo = 0;
-        dadosParaGrafico = valoresDiarios.map(v => saldo += v);
+        const chave = `${mercado}|${data}`;
+        if (!agrupador[chave]) agrupador[chave] = { mercado, data, pnl: 0 };
+        agrupador[chave].pnl += pnl;
     }
+    todasOperacoes = Object.values(agrupador);
+    renderizarDashboard();
+}
 
-    chart = new Chart(ctx, {
-        type: tipoGrafico,
-        plugins: [ChartDataLabels],
+function renderizarDashboard() {
+    const lucroLiquido = todasOperacoes.reduce((acc, o) => acc + o.pnl, 0);
+    document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
+    
+    // Gráfico
+    const ctx = document.getElementById('meuGrafico');
+    if (!ctx) return; // Segurança contra gráfico nulo
+
+    if (chartInstance) chartInstance.destroy();
+    
+    chartInstance = new Chart(ctx, {
+        type: document.getElementById('tipo-grafico').value,
         data: {
-            labels: labels,
-            datasets: [{
-                label: tipoGrafico === 'line' ? 'Evolução da Banca' : 'Lucro Diário',
-                data: dadosFinais,
-                backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)',
-                borderColor: '#36a2eb',
-                borderWidth: 2,
-                fill: tipoGrafico === 'line'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { datalabels: { anchor: 'end', align: 'top', formatter: v => v.toFixed(2) } }
+            labels: todasOperacoes.map(o => o.data),
+            datasets: [{ label: 'Lucro (R$)', data: todasOperacoes.map(o => o.pnl), backgroundColor: '#4bc0c0' }]
         }
     });
 }
-
-function atualizarTabela(lista) {
-    const corpo = document.getElementById('corpo-tabela');
-    corpo.innerHTML = "";
-    lista.slice().reverse().forEach(op => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td style="padding:10px;">${op.mercado}</td><td style="padding:10px;">${op.data}</td><td style="padding:10px;">${op.resp > 0 ? 'R$ '+op.resp.toFixed(2) : '-'}</td><td style="padding:10px; color:${op.pnl >= 0 ? 'green':'red'}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>`;
-        corpo.appendChild(tr);
-    });
-}
-
-['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
-    document.getElementById(id).addEventListener('change', aplicarFiltros);
-});
 
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then(() => {
         document.getElementById('auth-container').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
-        carregarDadosDoGitHub();
+        carregarDados();
     });
 });
