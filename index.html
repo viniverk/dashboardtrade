@@ -2,26 +2,43 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard Trade Esportivo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeEsportivo Dashboard</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+
     <div id="auth-container">
-        <button id="btn-login">Login com Google</button>
+        <div class="login-box">
+            <h2>Acesse o seu Dashboard</h2>
+            <p>Conecte-se com a sua conta Google para visualizar as suas métricas da Betfair Exchange.</p>
+            <button id="btn-login">Login com Google</button>
+        </div>
     </div>
 
     <div id="dashboard" style="display:none;">
-        <h1>Seu Painel de Performance</h1>
-        <input type="file" id="csvFile" accept=".csv" />
+        <header>
+            <h1>Dashboard de Resultados - Trade Esportivo</h1>
+        </header>
         
         <div class="cards">
-            <div class="card"><h3>Lucro Líquido</h3><p id="lucro">R$ 0,00</p></div>
-            <div class="card"><h3>Status de Risco</h3><p id="risco-status">Monitorando...</p></div>
+            <div class="card">
+                <h3>Lucro Líquido</h3>
+                <p id="lucro">R$ 0,00</p>
+            </div>
+            <div class="card">
+                <h3>Aviso de Risco</h3>
+                <p id="risco-status">A aguardar dados...</p>
+            </div>
         </div>
 
-        <canvas id="meuGrafico" style="max-width: 600px; margin-top: 20px;"></canvas>
+        <div class="chart-container">
+            <h3>Desempenho por Estratégia</h3>
+            <canvas id="meuGrafico"></canvas>
+        </div>
     </div>
+
     <script type="module" src="script.js"></script>
 </body>
 </html>
