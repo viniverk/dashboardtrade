@@ -19,15 +19,17 @@ let chart;
 
 Chart.register(ChartDataLabels);
 
+// Trata os valores exportados pelo Traderline (remove espaços e trata o "--")
 function tratarValor(valor) {
     if (!valor) return 0;
     let s = valor.toString().replace(/["'\sR$]/g, '');
+    if (s === '--' || s === '-') return 0;
     if (s.startsWith('(') && s.endsWith(')')) s = '-' + s.slice(1, -1);
     const num = parseFloat(s.replace(',', '.'));
     return isNaN(num) ? 0 : num;
 }
 
-// Mapa global de meses para suportar datas em PT e EN
+// Mapa global de meses
 const monthOrder = {
     "jan": 0, "feb": 1, "fev": 1, "mar": 2, "apr": 3, "abr": 3, "may": 4, "mai": 4,
     "jun": 5, "jul": 6, "aug": 7, "ago": 7, "sep": 8, "set": 8, "oct": 9, "out": 9,
@@ -42,44 +44,42 @@ async function carregarDadosDoGitHub() {
         const text = await response.text();
         const linhas = text.split('\n');
         
-        const cabecalhos = linhas[0].toLowerCase().split(',');
+        // Remove caracteres especiais como \r
+        const cabecalhos = linhas[0].toLowerCase().replace(/\r/g, '').split(',');
         
-        // Mapeamento Bilíngue: Busca as colunas do padrão novo (Inglês) e do antigo (Português)
-        const idxEvent = cabecalhos.findIndex(c => c.includes('event') || c === 'evento');
-        const idxMarket = cabecalhos.findIndex(c => c.includes('market') || c === 'mercado');
-        const idxData = cabecalhos.findIndex(c => c.includes('bet placed') || c.includes('aposta realizada') || c.includes('realizada'));
-        const idxLucro = cabecalhos.findIndex(c => c.includes('profit/loss') || c.includes('lucro/prejuízo') || c.includes('lucro'));
-        const idxResp = cabecalhos.findIndex(c => c.includes('liability') || c.includes('responsabilidade'));
-        const idxOdd = cabecalhos.findIndex(c => c.includes('avg. odds matched') || c.includes('média de probabilidades correspondidas') || c.includes('probabilidades req'));
+        // Índices baseados na estrutura do Traderline
+        const idxData = cabecalhos.findIndex(c => c.includes('realizada'));
+        const idxDesc = cabecalhos.findIndex(c => c.includes('descri')); // "Descrição"
+        const idxOdd = cabecalhos.findIndex(c => c.includes('cota')); // "Cotações"
+        const idxResp = cabecalhos.findIndex(c => c.includes('risco')); // "Risco (R$)"
+        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro')); // "Lucro/Perda"
 
         let agrupador = {};
 
         for (let i = 1; i < linhas.length; i++) {
-            const linha = linhas[i].trim();
-            if (!linha || linha.toLowerCase().includes("apostas correspondidas") || linha.toLowerCase().includes("matched bets")) continue;
+            const linha = linhas[i].trim().replace(/\r/g, '');
+            if (!linha || linha.toLowerCase().includes("status")) continue;
 
             const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            if (colunas.length <= Math.max(idxMarket, idxLucro)) continue;
+            if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
 
-            // Une o Evento e o Mercado para ficar legível na tabela (ex: Argentina x Argélia / Match Odds)
+            // Extrai o nome limpo do Mercado (Tudo que vem antes da barra "|" no Traderline)
             let mercadoNome = "Desconhecido";
-            if (idxEvent !== -1 && idxMarket !== -1 && colunas[idxEvent] && colunas[idxMarket]) {
-                mercadoNome = `${colunas[idxEvent].replace(/["']/g, '').trim()} / ${colunas[idxMarket].replace(/["']/g, '').trim()}`;
-            } else if (idxMarket !== -1 && colunas[idxMarket]) {
-                mercadoNome = colunas[idxMarket].replace(/["']/g, '').trim();
+            if (idxDesc !== -1 && colunas[idxDesc]) {
+                mercadoNome = colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim();
             }
 
-            const dataHora = idxData !== -1 ? colunas[idxData].replace(/["']/g, '').trim() : "Sem data";
+            const dataHoraCompleta = idxData !== -1 && colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : "Sem data";
             const lucro = idxLucro !== -1 ? tratarValor(colunas[idxLucro]) : 0;
             const resp = idxResp !== -1 ? tratarValor(colunas[idxResp]) : 0;
             const odd = idxOdd !== -1 ? tratarValor(colunas[idxOdd]) : 0;
             
-            let dataLimpa = dataHora;
+            let dataLimpa = dataHoraCompleta;
             let ano = "Todos";
             let mes = "Todos";
 
-            if (dataHora.includes('-')) {
-                dataLimpa = dataHora.split(' ')[0]; // ex: "16-jun-26" ou "16-Jun-26"
+            if (dataHoraCompleta.includes('-')) {
+                dataLimpa = dataHoraCompleta.split(' ')[0]; // Pega apenas a data "23-jun-26"
                 const partesData = dataLimpa.split('-');
                 if (partesData.length === 3) {
                     ano = "20" + partesData[2];
@@ -87,12 +87,17 @@ async function carregarDadosDoGitHub() {
                 }
             }
 
-            const chave = `${mercadoNome}|${dataHora}`;
+            // A chave de agrupamento agora é o Mercado + Data (Ignoramos as horas para consolidar tudo num único resultado daquele dia)
+            const chave = `${mercadoNome}|${dataLimpa}`;
 
             if (!agrupador[chave]) {
-                agrupador[chave] = { mercado: mercadoNome, data: dataHora, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
+                agrupador[chave] = { mercado: mercadoNome, data: dataLimpa, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
             }
+            
+            // Soma os ganhos e perdas de todas as entradas e saídas
             agrupador[chave].pnl += lucro;
+            
+            // Guarda o risco máximo que você teve na operação e a cotação mais alta que você pegou
             agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
             agrupador[chave].odd = Math.max(agrupador[chave].odd, odd);
         }
@@ -135,9 +140,9 @@ function aplicarFiltros() {
     const filtradas = todasOperacoes.filter(op => {
         const mercLower = op.mercado.toLowerCase();
         
-        // Filtra considerando os termos em PT ou EN do CSV da Betfair
+        // Match Odds costuma vir como "probabilidades" ou "resultado" no Traderline, Lay Goleada como "placar"
         const condEstrat = (fEstrat === 'TODAS' || 
-                           (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('match odds'))) || 
+                           (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || 
                            (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
                            
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
@@ -172,7 +177,6 @@ function renderizarGrafico(lista, tipoGrafico) {
         agrupadoPorData[o.dataLimpa] += o.pnl;
     });
 
-    // Ordenação robusta que suporta meses em Inglês e Português
     const labels = Object.keys(agrupadoPorData).sort((a, b) => {
         const numMesA = monthOrder[a.split('-')[1].toLowerCase()];
         const numMesB = monthOrder[b.split('-')[1].toLowerCase()];
@@ -209,15 +213,8 @@ function renderizarGrafico(lista, tipoGrafico) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: {
-                padding: { top: 30 }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grace: '20%'
-                }
-            },
+            layout: { padding: { top: 30 } },
+            scales: { y: { beginAtZero: true, grace: '20%' } },
             plugins: { 
                 datalabels: { 
                     anchor: 'end', 
