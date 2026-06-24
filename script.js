@@ -16,7 +16,6 @@ const provider = new GoogleAuthProvider();
 let chart;
 
 async function carregarDadosDoGitHub() {
-    // O '?t=' + timestamp força o navegador a buscar o arquivo novo, burlando o cache do GitHub
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
     
     try {
@@ -36,11 +35,10 @@ async function carregarDadosDoGitHub() {
             let colunas = linhaLimpa.split(',');
             if (colunas.length < 4) continue;
 
-            // Extrai de trás para frente. Isso impede que vírgulas no nome do time quebrem a planilha.
-            const resultadoTexto = colunas.pop().replace(/["']/g, ''); // Pega a última coluna (Lucro)
-            const dataResolucao = colunas.pop().replace(/["']/g, '');  // Penúltima (Data Fim)
-            const horaInicio = colunas.pop().replace(/["']/g, '');     // Antepenúltima (Data Início)
-            const mercadoOriginal = colunas.join(',').replace(/["']/g, ''); // O que sobrar é o nome do jogo
+            const resultadoTexto = colunas.pop().replace(/["']/g, ''); 
+            const dataResolucao = colunas.pop().replace(/["']/g, '');  
+            const horaInicio = colunas.pop().replace(/["']/g, '');     
+            const mercadoOriginal = colunas.join(',').replace(/["']/g, ''); 
             
             const mercadoLower = mercadoOriginal.toLowerCase();
             const resultado = parseFloat(resultadoTexto);
@@ -61,11 +59,25 @@ async function carregarDadosDoGitHub() {
             });
         }
 
-        const lucroTotalLiquido = (lucroMO + lucroLG) - 150.00;
+        // 1. Lucro Bruto (Apenas a soma das estratégias)
+        const lucroBrutoTotal = lucroMO + lucroLG;
         
+        // 2. Lucro Líquido (Bruto menos o custo das transmissões)
+        const lucroTotalLiquido = lucroBrutoTotal - 150.00;
+        
+        // Atualiza o card de Lucro Bruto
+        const displayBruto = document.getElementById('lucro-bruto');
+        if (displayBruto) displayBruto.innerText = `R$ ${lucroBrutoTotal.toFixed(2)}`;
+
+        // Atualiza o card de Custo Fixo (caso queira garantir dinamicamente)
+        const displayCusto = document.getElementById('custo-fixo');
+        if (displayCusto) displayCusto.innerText = `R$ 150,00`;
+
+        // Atualiza o card de Lucro Líquido
         const displayLucro = document.getElementById('lucro');
         if (displayLucro) displayLucro.innerText = `R$ ${lucroTotalLiquido.toFixed(2)}`;
         
+        // Atualiza o Status de Risco
         const riscoStatus = document.getElementById('risco-status');
         if (riscoStatus) {
             riscoStatus.innerText = "Monitoramento Ativo";
@@ -103,7 +115,7 @@ function renderizarGrafico(valMO, valLG) {
     });
 }
 
-function atualizarTabela(lista) {
+function actualizarTabela(lista) {
     const corpoTabela = document.getElementById('corpo-tabela');
     if (!corpoTabela) return;
 
