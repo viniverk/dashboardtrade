@@ -180,12 +180,12 @@ function renderizarGrafico(lista, tipoGrafico) {
             responsive: true,
             maintainAspectRatio: false,
             layout: {
-                padding: { top: 20 }
+                padding: { top: 30 } // Empurra o gráfico para baixo, abrindo espaço no teto
             },
             scales: {
                 y: {
                     beginAtZero: true,
-                    grace: '20%' // O SEGREDO: Dá 20% de espaço extra no topo para o rótulo não encostar no teto
+                    grace: '20%' // O SEGREDO: Dá 20% de espaço extra no topo da escala Y
                 }
             },
             plugins: { 
@@ -194,39 +194,7 @@ function renderizarGrafico(lista, tipoGrafico) {
                     align: 'top', 
                     formatter: v => 'R$ ' + v.toFixed(2),
                     font: { weight: 'bold', size: 11 },
-                    padding: { bottom: 10 } // Empurra o rótulo um pouquinho para cima da barra
-                } 
-            }
-        }
-    });
-}
-
-    chart = new Chart(ctx, {
-        type: tipoGrafico,
-        data: {
-            labels: labels,
-            datasets: [{
-                label: tipoGrafico === 'line' ? 'Evolução da Banca (R$)' : 'Lucro Diário (R$)',
-                data: dadosParaGrafico, // O Erro estava aqui na variável! 
-                backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)',
-                borderColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : '#36a2eb',
-                borderWidth: 2,
-                fill: tipoGrafico === 'line',
-                tension: 0.2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: {
-                padding: { top: 30 }
-            },
-            plugins: { 
-                datalabels: { 
-                    anchor: 'end', 
-                    align: 'top', 
-                    formatter: v => 'R$ ' + v.toFixed(2),
-                    font: { weight: 'bold' }
+                    padding: { bottom: 10 } // Empurra o rótulo levemente para cima da barra
                 } 
             }
         }
