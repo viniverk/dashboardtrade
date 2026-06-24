@@ -64,3 +64,22 @@ inputCSV.addEventListener('change', (e) => {
     };
     reader.readAsText(file);
 });
+let chart; // variável global para o gráfico
+
+function atualizarGrafico(lucroEstrategiaA, lucroEstrategiaB) {
+    const ctx = document.getElementById('meuGrafico').getContext('2d');
+    
+    if (chart) chart.destroy(); // Limpa gráfico anterior se existir
+    
+    chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Match Odds', 'Lay Goleada'],
+            datasets: [{
+                label: 'Lucro por Estratégia (R$)',
+                data: [lucroEstrategiaA, lucroEstrategiaB],
+                backgroundColor: ['#36a2eb', '#ff6384']
+            }]
+        }
+    });
+}
