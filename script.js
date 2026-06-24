@@ -14,7 +14,6 @@ initializeApp(firebaseConfig);
 const auth = getAuth();
 const provider = new GoogleAuthProvider();
 
-// Função para tratar valores (converte "(12.29)" em "-12.29")
 function tratarValor(valor) {
     if (!valor) return 0;
     let s = valor.toString().replace(/["'\sR$]/g, '');
@@ -32,11 +31,16 @@ async function carregarDadosDoGitHub() {
         const linhas = text.split('\n');
         if (linhas.length < 2) return;
 
-        // Identifica os índices das colunas automaticamente pelo cabeçalho
-        const cabecalhos = linhas[0].toLowerCase().split(',');
+        // Limpeza do cabeçalho
+        const cabecalhos = linhas[0].toLowerCase().split(',').map(c => c.trim());
+        
+        // Localização precisa dos índices
         const idxMercado = cabecalhos.findIndex(c => c.includes('mercado'));
-        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro/prejuízo'));
+        const idxData = cabecalhos.findIndex(c => c.includes('aposta realizada'));
+        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
         const idxResp = cabecalhos.findIndex(c => c.includes('responsabilidade'));
+
+        console.log("Índices encontrados:", { idxMercado, idxData, idxLucro, idxResp });
 
         let agrupador = {};
 
@@ -45,45 +49,46 @@ async function carregarDadosDoGitHub() {
             if (!linha || linha.includes("Apostas correspondidas")) continue;
 
             const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            if (colunas.length <= Math.max(idxMercado, idxLucro)) continue;
+            if (colunas.length < 3) continue;
 
-            const mercado = colunas[idxMercado].replace(/["']/g, '').trim();
+            const mercado = colunas[idxMercado] ? colunas[idxMercado].replace(/["']/g, '').trim() : "Mercado Desconhecido";
+            const dataHora = idxData !== -1 ? colunas[idxData].replace(/["']/g, '').trim() : "Data Indisponível";
             const lucro = tratarValor(colunas[idxLucro]);
             const resp = idxResp !== -1 ? tratarValor(colunas[idxResp]) : 0;
 
-            // Agrupa pelo nome do mercado (Soma todos os lances do mesmo jogo)
-            if (!agrupador[mercado]) agrupador[mercado] = { mercado, pnl: 0, resp: 0 };
-            agrupador[mercado].pnl += lucro;
-            agrupador[mercado].resp = Math.max(agrupador[mercado].resp, resp);
+            const chave = `${mercado}|${dataHora}`;
+
+            if (!agrupador[chave]) {
+                agrupador[chave] = { mercado, data: dataHora, pnl: 0, resp: 0 };
+            }
+            agrupador[chave].pnl += lucro;
+            agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
         }
 
         const dadosFinais = Object.values(agrupador);
         exibirDashboard(dadosFinais);
         
-    } catch (error) { console.error("Erro no processamento:", error); }
+    } catch (error) { console.error("Erro ao carregar CSV:", error); }
 }
 
 function exibirDashboard(lista) {
-    // Lucro Líquido Real
     const lucroLiquido = lista.reduce((acc, op) => acc + op.pnl, 0);
-    // Média de Responsabilidade (apenas das operações com risco > 0)
     const comResp = lista.filter(op => op.resp > 0);
     const mediaResp = comResp.length > 0 ? (comResp.reduce((acc, op) => acc + op.resp, 0) / comResp.length) : 0;
 
     document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
     document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
 
-    // Tabela
     const corpo = document.getElementById('corpo-tabela');
     corpo.innerHTML = "";
     lista.forEach(op => {
         const tr = document.createElement('tr');
         const cor = op.pnl >= 0 ? "green" : "red";
         tr.innerHTML = `
-            <td style="padding:10px;">${op.mercado}</td>
-            <td style="padding:10px;">-</td>
-            <td style="padding:10px;">${op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-'}</td>
-            <td style="padding:10px; color:${cor}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>
+            <td style="padding:10px; font-size: 13px;">${op.mercado}</td>
+            <td style="padding:10px; font-size: 13px;">${op.data}</td>
+            <td style="padding:10px; font-size: 13px;">${op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-'}</td>
+            <td style="padding:10px; font-size: 13px; color:${cor}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>
         `;
         corpo.appendChild(tr);
     });
