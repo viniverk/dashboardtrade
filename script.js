@@ -16,13 +16,15 @@ const provider = new GoogleAuthProvider();
 let chart;
 
 async function carregarDadosDoGitHub() {
-    const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv";
+    // O '?t=' + timestamp força o navegador a buscar o arquivo novo, burlando o cache do GitHub
+    const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
+    
     try {
         const response = await fetch(url);
         const text = await response.text();
         
-        let lucroMO = 0; // Resultado da partida
-        let lucroLG = 0; // Placar correto
+        let lucroMO = 0; 
+        let lucroLG = 0; 
         let operacoesLista = []; 
 
         const linhas = text.split('\n');
@@ -31,30 +33,26 @@ async function carregarDadosDoGitHub() {
             const linhaLimpa = linhas[i].trim();
             if (!linhaLimpa) continue;
 
-            // Lógica à prova de falhas: Extrai os dados de trás para frente.
-            // O Regex isola as 3 últimas colunas separadas por vírgula, e deixa o resto todo como Mercado.
-            const match = linhaLimpa.match(/(.*),([^,]+),([^,]+),([^,]+)$/);
-            
-            // Se for o cabeçalho ou linha inválida, pula.
-            if (!match || match[1].toLowerCase().includes("mercado")) continue;
+            let colunas = linhaLimpa.split(',');
+            if (colunas.length < 4) continue;
 
-            // match[1] = Mercado, match[2] = Hora de inicio, match[3] = Data resolucao, match[4] = Lucro
-            const mercadoOriginal = match[1].replace(/["']/g, ''); // Tira aspas extras se tiver
+            // Extrai de trás para frente. Isso impede que vírgulas no nome do time quebrem a planilha.
+            const resultadoTexto = colunas.pop().replace(/["']/g, ''); // Pega a última coluna (Lucro)
+            const dataResolucao = colunas.pop().replace(/["']/g, '');  // Penúltima (Data Fim)
+            const horaInicio = colunas.pop().replace(/["']/g, '');     // Antepenúltima (Data Início)
+            const mercadoOriginal = colunas.join(',').replace(/["']/g, ''); // O que sobrar é o nome do jogo
+            
             const mercadoLower = mercadoOriginal.toLowerCase();
-            const horaInicio = match[2];
-            const dataResolucao = match[3];
-            const resultado = parseFloat(match[4]);
+            const resultado = parseFloat(resultadoTexto);
 
             if (isNaN(resultado)) continue;
 
-            // Separa os lucros pelas estratégias
             if (mercadoLower.includes("resultado da partida")) {
                 lucroMO += resultado;
             } else if (mercadoLower.includes("placar correto")) {
                 lucroLG += resultado;
             }
 
-            // Guarda na lista para a tabela
             operacoesLista.push({
                 mercado: mercadoOriginal,
                 inicio: horaInicio,
@@ -63,10 +61,8 @@ async function carregarDadosDoGitHub() {
             });
         }
 
-        // Calcula o lucro líquido descontando o custo fixo de R$ 150,00
         const lucroTotalLiquido = (lucroMO + lucroLG) - 150.00;
         
-        // Atualiza o painel
         const displayLucro = document.getElementById('lucro');
         if (displayLucro) displayLucro.innerText = `R$ ${lucroTotalLiquido.toFixed(2)}`;
         
