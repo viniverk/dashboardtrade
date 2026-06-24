@@ -19,7 +19,7 @@ let chart;
 
 Chart.register(ChartDataLabels);
 
-// Trata os valores exportados pelo Traderline (remove espaços e trata o "--")
+																			   
 function tratarValor(valor) {
     if (!valor) return 0;
     let s = valor.toString().replace(/["'\sR$]/g, '');
@@ -29,7 +29,7 @@ function tratarValor(valor) {
     return isNaN(num) ? 0 : num;
 }
 
-// Mapa global de meses
+					   
 const monthOrder = {
     "jan": 0, "feb": 1, "fev": 1, "mar": 2, "apr": 3, "abr": 3, "may": 4, "mai": 4,
     "jun": 5, "jul": 6, "aug": 7, "ago": 7, "sep": 8, "set": 8, "oct": 9, "out": 9,
@@ -44,15 +44,15 @@ async function carregarDadosDoGitHub() {
         const text = await response.text();
         const linhas = text.split('\n');
         
-        // Remove caracteres especiais como \r
+											  
         const cabecalhos = linhas[0].toLowerCase().replace(/\r/g, '').split(',');
         
-        // Índices baseados na estrutura do Traderline
-        const idxData = cabecalhos.findIndex(c => c.includes('realizada'));
-        const idxDesc = cabecalhos.findIndex(c => c.includes('descri')); // "Descrição"
-        const idxOdd = cabecalhos.findIndex(c => c.includes('cota')); // "Cotações"
-        const idxResp = cabecalhos.findIndex(c => c.includes('risco')); // "Risco (R$)"
-        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro')); // "Lucro/Perda"
+													   
+        const idxData = cabecalhos.findIndex(c => c.includes('resolvida'));
+        const idxDesc = cabecalhos.findIndex(c => c.includes('descri'));
+        const idxOdd = cabecalhos.findIndex(c => c.includes('cota'));
+        const idxResp = cabecalhos.findIndex(c => c.includes('risco'));
+        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
 
         let agrupador = {};
 
@@ -63,7 +63,7 @@ async function carregarDadosDoGitHub() {
             const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
 
-            // Extrai o nome limpo do Mercado (Tudo que vem antes da barra "|" no Traderline)
+																							 
             let mercadoNome = "Desconhecido";
             if (idxDesc !== -1 && colunas[idxDesc]) {
                 mercadoNome = colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim();
@@ -79,7 +79,7 @@ async function carregarDadosDoGitHub() {
             let mes = "Todos";
 
             if (dataHoraCompleta.includes('-')) {
-                dataLimpa = dataHoraCompleta.split(' ')[0]; // Pega apenas a data "23-jun-26"
+                dataLimpa = dataHoraCompleta.split(' ')[0];
                 const partesData = dataLimpa.split('-');
                 if (partesData.length === 3) {
                     ano = "20" + partesData[2];
@@ -87,17 +87,17 @@ async function carregarDadosDoGitHub() {
                 }
             }
 
-            // A chave de agrupamento agora é o Mercado + Data (Ignoramos as horas para consolidar tudo num único resultado daquele dia)
+																																		  
             const chave = `${mercadoNome}|${dataLimpa}`;
 
             if (!agrupador[chave]) {
-                agrupador[chave] = { mercado: mercadoNome, data: dataLimpa, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
+                agrupador[chave] = { mercado: mercadoNome, data: dataHoraCompleta, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
             }
             
-            // Soma os ganhos e perdas de todas as entradas e saídas
+																	 
             agrupador[chave].pnl += lucro;
-            
-            // Guarda o risco máximo que você teve na operação e a cotação mais alta que você pegou
+			
+																										  
             agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
             agrupador[chave].odd = Math.max(agrupador[chave].odd, odd);
         }
@@ -131,34 +131,55 @@ function aplicarFiltros() {
     const fData = document.getElementById('filtro-data').value;
     const fGrafico = document.getElementById('tipo-grafico').value;
 
-    const mesesPT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-    const mesesEN = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-    
-    const mesBuscadoPT = mesesPT[fMes];
-    const mesBuscadoEN = mesesEN[fMes];
+    const mesesMap = {
+        "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun",
+        "6": "jul", "7": "ago", "8": "set", "9": "out", "10": "nov", "11": "dez"
+    };
+    const mesBuscado = mesesMap[fMes];
 
     const filtradas = todasOperacoes.filter(op => {
         const mercLower = op.mercado.toLowerCase();
         
-        // Match Odds costuma vir como "probabilidades" ou "resultado" no Traderline, Lay Goleada como "placar"
+																											   
         const condEstrat = (fEstrat === 'TODAS' || 
                            (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || 
                            (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
                            
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
-        const condMes = (fMes === 'TODOS' || op.mes === mesBuscadoPT || op.mes === mesBuscadoEN);
+        const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
         const condData = (fData === 'TODAS' || op.dataLimpa === fData);
         
         return condEstrat && condAno && condMes && condData;
     });
 
+    // 1. Lucro Líquido
     const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
     document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
     document.getElementById('lucro').style.color = lucroLiquido >= 0 ? 'green' : 'red';
 
+    // 2. Stake Média
     const comResp = filtradas.filter(op => op.resp > 0);
-    const mediaResp = comResp.length > 0 ? (comResp.reduce((acc, op) => acc + op.resp, 0) / comResp.length) : 0;
+    const totalResp = comResp.reduce((acc, op) => acc + op.resp, 0);
+    const mediaResp = comResp.length > 0 ? (totalResp / comResp.length) : 0;
     document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
+
+    // 3. % de Lucro (Yield sobre o total investido)
+    const pctLucro = totalResp > 0 ? (lucroLiquido / totalResp) * 100 : 0;
+    const elPctLucro = document.getElementById('pct-lucro');
+    if (elPctLucro) {
+        elPctLucro.innerText = `${pctLucro.toFixed(2)}%`;
+        elPctLucro.style.color = pctLucro >= 0 ? 'green' : 'red';
+    }
+
+    // 4. ROI sobre Stake Média (Em % e em Unidades)
+    const roiStake = mediaResp > 0 ? (lucroLiquido / mediaResp) * 100 : 0;
+    const unidades = mediaResp > 0 ? (lucroLiquido / mediaResp).toFixed(2) : 0;
+    const elRoiStake = document.getElementById('roi-stake');
+    if (elRoiStake) {
+        const sinal = unidades > 0 ? '+' : '';
+        elRoiStake.innerText = `${roiStake.toFixed(2)}% (${sinal}${unidades} und)`;
+        elRoiStake.style.color = roiStake >= 0 ? 'green' : 'red';
+    }
 
     atualizarTabela(filtradas);
     renderizarGrafico(filtradas, fGrafico);
