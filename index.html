@@ -1,3 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>TradeEsportivo Dashboard</title>
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
+</head>
+<body>
+    <h1>Dashboard de Resultados</h1>
+    
+    <div id="auth-container">
+        <button id="btn-login">Login com Google</button>
+    </div>
+
+    <div id="dashboard" style="display:none;">
+        <input type="file" id="csvFile" accept=".csv" />
+        <div id="kpis">
+            <p>Lucro Líquido: <span id="lucro">R$ 0,00</span></p>
+            <p>Aviso de Risco: <span id="risco-status">Monitorando...</span></p>
+        </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
