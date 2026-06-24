@@ -16,12 +16,13 @@ const provider = new GoogleAuthProvider();
 let chart;
 let todasOperacoes = [];
 
+// Transforma "16-jun-26 22:50" em dados de tempo
 function parseDataBetfair(dataString) {
+    if (!dataString) return null;
     const partes = dataString.split(' ')[0].split('-');
     if (partes.length !== 3) return null;
     
     const meses = { 'jan':0, 'fev':1, 'mar':2, 'abr':3, 'mai':4, 'jun':5, 'jul':6, 'ago':7, 'set':8, 'out':9, 'nov':10, 'dez':11 };
-    
     const dia = partes[0].padStart(2, '0');
     const mesNum = meses[partes[1].toLowerCase()] || 0;
     const ano = "20" + partes[2];
@@ -34,6 +35,16 @@ function parseDataBetfair(dataString) {
     };
 }
 
+// Converte valores financeiros da Betfair: tira aspas e transforma (12.29) em -12.29
+function parseBetfairNumber(str) {
+    if (!str) return NaN;
+    str = str.replace(/["'\sR$]/g, '');
+    if (str.startsWith('(') && str.endsWith(')')) {
+        str = '-' + str.slice(1, -1);
+    }
+    return parseFloat(str);
+}
+
 async function carregarDadosDoGitHub() {
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
     
@@ -41,34 +52,48 @@ async function carregarDadosDoGitHub() {
         const response = await fetch(url);
         const text = await response.text();
         const linhas = text.split('\n');
+        if (linhas.length < 2) return;
         
         todasOperacoes = [];
         const operacoesProcessadas = new Set();
 
+        // O Regex divide as vírgulas apenas se não estiverem dentro de aspas duplas
+        const regexCSV = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+        const cabecalhos = linhas[0].split(regexCSV).map(c => c.trim().toLowerCase().replace(/["']/g, ''));
+        
+        // Mapeia dinamicamente onde estão as colunas independentemente da ordem
+        let idxMercado = -1, idxData = -1, idxLucro = -1, idxResp = -1;
+        cabecalhos.forEach((col, i) => {
+            if (col.includes('mercado')) idxMercado = i;
+            if (col.includes('realizada') || col.includes('inicio')) idxData = i;
+            if (col.includes('lucro')) idxLucro = i;
+            if (col.includes('responsabilidade')) idxResp = i;
+        });
+
+        // Loop de processamento
         for (let i = 1; i < linhas.length; i++) {
             const linhaLimpa = linhas[i].trim();
             if (!linhaLimpa) continue;
 
-            let colunas = linhaLimpa.split(',');
-            if (colunas.length < 4) continue;
+            const colunas = linhaLimpa.split(regexCSV).map(c => c.trim().replace(/["']/g, ''));
+            if (colunas.length < Math.max(idxMercado, idxData, idxLucro)) continue;
 
-            const resultadoTexto = colunas.pop().replace(/["']/g, ''); 
-            const dataResolucao = colunas.pop().replace(/["']/g, '');  
-            const horaInicio = colunas.pop().replace(/["']/g, '');     
-            const mercadoOriginal = colunas.join(',').replace(/["']/g, ''); 
+            const mercadoOriginal = colunas[idxMercado];
+            const horaInicio = colunas[idxData];
+            const resultado = parseBetfairNumber(colunas[idxLucro]);
             
-            const chaveUnica = `${mercadoOriginal}|${horaInicio}|${dataResolucao}|${resultadoTexto}`;
+            // Responsabilidade (Se estiver vazio ou for "Aposta a favor", converte para 0)
+            let responsabilidade = idxResp !== -1 ? parseBetfairNumber(colunas[idxResp]) : 0;
+            if (isNaN(responsabilidade)) responsabilidade = 0;
 
-            if (operacoesProcessadas.has(chaveUnica)) {
-                continue;
-            }
+            if (isNaN(resultado) || !horaInicio) continue;
+
+            // Escudo Anti-Duplicidade
+            const chaveUnica = `${mercadoOriginal}|${horaInicio}|${resultado}`;
+            if (operacoesProcessadas.has(chaveUnica)) continue;
             operacoesProcessadas.add(chaveUnica);
 
             const mercadoLower = mercadoOriginal.toLowerCase();
-            const resultado = parseFloat(resultadoTexto);
-
-            if (isNaN(resultado)) continue;
-
             let categoriaEstrategia = "OUTROS";
             if (mercadoLower.includes("resultado da partida")) categoriaEstrategia = "MO";
             else if (mercadoLower.includes("placar correto")) categoriaEstrategia = "LG";
@@ -80,8 +105,8 @@ async function carregarDadosDoGitHub() {
                 mercado: mercadoOriginal,
                 estrategia: categoriaEstrategia,
                 inicio: horaInicio,
-                fim: dataResolucao,
                 pnl: resultado,
+                resp: responsabilidade,
                 dataObj: infoData.dataObj,
                 dataStr: infoData.dataStr,
                 ano: infoData.ano,
@@ -128,11 +153,27 @@ function aplicarFiltros() {
         return condEstrat && condAno && condMes && condData;
     });
 
+    // 1. Atualiza Lucro Líquido
     const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
     const lucroElem = document.getElementById('lucro');
     if (lucroElem) {
         lucroElem.innerText = `R$ ${lucroLiquido.toFixed(2)}`;
         lucroElem.style.color = lucroLiquido >= 0 ? 'green' : 'red';
+    }
+
+    // 2. Calcula e Atualiza Média de Responsabilidade (Conta apenas operações que tenham responsabilidade preenchida > 0)
+    let somaResp = 0;
+    let totalLays = 0;
+    filtradas.forEach(op => {
+        if (op.resp > 0) {
+            somaResp += op.resp;
+            totalLays++;
+        }
+    });
+    const mediaResp = totalLays > 0 ? (somaResp / totalLays) : 0;
+    const respElem = document.getElementById('media-responsabilidade');
+    if (respElem) {
+        respElem.innerText = `R$ ${mediaResp.toFixed(2)}`;
     }
 
     atualizarTabela(filtradas.slice().reverse()); 
@@ -169,7 +210,7 @@ function renderizarGrafico(lista, tipoGrafico) {
 
     chart = new Chart(ctx, {
         type: tipoGrafico,
-        plugins: [ChartDataLabels], // Ativa o plugin de rótulos de dados
+        plugins: [ChartDataLabels],
         data: {
             labels: labels,
             datasets: [{
@@ -184,26 +225,18 @@ function renderizarGrafico(lista, tipoGrafico) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false, // Permite que ele respeite a altura do container sem distorcer
-            layout: {
-                padding: {
-                    top: 25 // Espaço extra no topo para o texto do rótulo não cortar
-                }
-            },
-            scales: { 
-                y: { beginAtZero: false } 
-            },
+            maintainAspectRatio: false,
+            layout: { padding: { top: 25 } },
+            scales: { y: { beginAtZero: false } },
             plugins: {
                 legend: { display: true },
                 tooltip: { enabled: true },
-                // Configuração detalhada dos rótulos em cima das colunas/pontos
                 datalabels: {
                     align: 'top',
                     anchor: 'end',
                     offset: 4,
                     font: { weight: 'bold', size: 11 },
                     color: function(context) {
-                        // Linha usa azul escuro, barras usam a cor do próprio bloco
                         return isLine ? '#1e3a8a' : (context.dataset.data[context.dataIndex] >= 0 ? '#115e59' : '#991b1b');
                     },
                     formatter: function(value) {
@@ -225,10 +258,12 @@ function atualizarTabela(lista) {
         tr.style.borderBottom = "1px solid #eee";
         const corValor = op.pnl >= 0 ? "green" : "red";
         const sinal = op.pnl >= 0 ? "+" : "";
+        const expResp = op.resp > 0 ? `R$ ${op.resp.toFixed(2)}` : '-';
+
         tr.innerHTML = `
             <td style="padding: 10px; font-size: 14px;">${op.mercado}</td>
             <td style="padding: 10px; font-size: 14px; color: #555;">${op.inicio}</td>
-            <td style="padding: 10px; font-size: 14px; color: #555;">${op.fim}</td>
+            <td style="padding: 10px; font-size: 14px; color: #555; font-weight: bold;">${expResp}</td>
             <td style="padding: 10px; font-size: 14px; font-weight: bold; color: ${corValor};">
                 R$ ${sinal}${op.pnl.toFixed(2)}
             </td>
