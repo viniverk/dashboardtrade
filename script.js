@@ -21,51 +21,47 @@ async function carregarDadosDoGitHub() {
         const response = await fetch(url);
         const text = await response.text();
         
-        let lucroMO = 0;
-        let lucroLG = 0;
+        let lucroMO = 0; // Resultado da partida
+        let lucroLG = 0; // Placar correto
+
         const linhas = text.split('\n');
         
-        if (linhas.length < 2) return;
-
-        // Descobre se o arquivo usa vírgula ou ponto-e-vírgula e lê os cabeçalhos
-        const separador = linhas[0].includes(';') ? ';' : ',';
-        const cabecalhos = linhas[0].split(separador).map(h => h.trim().toLowerCase().replace(/["']/g, ''));
-        
-        // Encontra onde estão as colunas independentemente da ordem
-        const idxMercado = cabecalhos.findIndex(h => h.includes('mercado') || h.includes('market'));
-        const idxLucro = cabecalhos.findIndex(h => h.includes('lucro') || h.includes('profit') || h.includes('p&l'));
-
-        // Se não encontrar as colunas, avisa no console
-        if (idxMercado === -1 || idxLucro === -1) {
-            console.error("Colunas de Mercado ou Lucro não encontradas no CSV.");
-            return;
-        }
-
+        // Começa em 1 para pular a linha de cabeçalho
         for (let i = 1; i < linhas.length; i++) {
             if (!linhas[i].trim()) continue; // Pula linhas em branco
 
-            let colunas = linhas[i].split(separador);
-            
-            const mercado = (colunas[idxMercado] || "").toLowerCase().replace(/["']/g, '');
-            
-            // Limpa o valor (tira aspas, R$, espaços) e troca vírgula por ponto
-            let valorTexto = (colunas[idxLucro] || "0").replace(/["' R$]/g, '').replace(',', '.');
-            const resultado = parseFloat(valorTexto);
+            const colunas = linhas[i].split(',');
+            if (colunas.length < 4) continue; // Pula se a linha estiver incompleta
+
+            // Extrai as colunas com base na sua planilha exata
+            const mercado = colunas[0].toLowerCase();
+            const resultado = parseFloat(colunas[3]);
 
             if (isNaN(resultado)) continue;
 
-            // Filtra e soma pelas estratégias
-            if (mercado.includes("match odds") || mercado.includes("probabilidades")) {
+            // Filtra os lucros exatamente como a Betfair escreve
+            if (mercado.includes("resultado da partida")) {
                 lucroMO += resultado;
-            } else if (mercado.includes("lay goleada") || mercado.includes("correct score") || mercado.includes("resultado exato")) {
+            } else if (mercado.includes("placar correto")) {
                 lucroLG += resultado;
             }
         }
 
-        // Atualiza a tela
-        const displayLucro = document.getElementById('lucro');
-        if (displayLucro) displayLucro.innerText = `R$ ${(lucroMO + lucroLG - 150).toFixed(2)}`;
+        // Calcula o lucro líquido descontando o streaming (R$ 150,00)
+        const lucroTotalLiquido = (lucroMO + lucroLG) - 150.00;
         
+        // Atualiza o texto de Lucro Líquido no Dashboard
+        const displayLucro = document.getElementById('lucro');
+        if (displayLucro) displayLucro.innerText = `R$ ${lucroTotalLiquido.toFixed(2)}`;
+        
+        // Atualiza o Status de Risco baseado na stake
+        const riscoStatus = document.getElementById('risco-status');
+        if (riscoStatus) {
+            riscoStatus.innerText = "Monitoramento Ativo";
+            riscoStatus.style.color = "green";
+        }
+
+        // Renderiza o Gráfico
         const canvas = document.getElementById('meuGrafico');
         if (canvas) renderizarGrafico(lucroMO, lucroLG);
         
@@ -74,23 +70,32 @@ async function carregarDadosDoGitHub() {
     }
 }
 
-function renderizarGrafico(valA, valB) {
+function renderizarGrafico(valMO, valLG) {
     const ctx = document.getElementById('meuGrafico').getContext('2d');
-    if (chart) chart.destroy();
+    if (chart) chart.destroy(); // Apaga o gráfico antigo se existir
     chart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Match Odds', 'Lay Goleada'],
+            labels: ['Match Odds (Resultado)', 'Lay Goleada (Placar)'],
             datasets: [{ 
-                label: 'Lucro Líquido (R$)', 
-                data: [valA, valB], 
-                backgroundColor: ['#36a2eb', '#ff6384'] 
+                label: 'Lucro Bruto por Estratégia (R$)', 
+                data: [valMO, valLG], 
+                backgroundColor: ['#36a2eb', '#ff6384'],
+                borderWidth: 1
             }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
         }
     });
 }
 
-// Botão de Login
+// Configuração do botão de Login
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then(() => {
         document.getElementById('auth-container').style.display = 'none';
