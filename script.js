@@ -13,7 +13,10 @@ const firebaseConfig = {
 initializeApp(firebaseConfig);
 const auth = getAuth();
 const provider = new GoogleAuthProvider();
+let todasOperacoes = [];
+let chart;
 
+// Função para tratar valores (converte "(12.29)" em "-12.29")
 function tratarValor(valor) {
     if (!valor) return 0;
     let s = valor.toString().replace(/["'\sR$]/g, '');
@@ -31,54 +34,97 @@ async function carregarDadosDoGitHub() {
         const linhas = text.split('\n');
         if (linhas.length < 2) return;
 
-        // Limpeza do cabeçalho
-        const cabecalhos = linhas[0].toLowerCase().split(',').map(c => c.trim());
-        
-        // Localização precisa dos índices
+        // Identifica cabeçalhos e encontra índices dinamicamente
+        const cabecalhos = linhas[0].toLowerCase().split(',');
         const idxMercado = cabecalhos.findIndex(c => c.includes('mercado'));
-        const idxData = cabecalhos.findIndex(c => c.includes('aposta realizada'));
+        const idxData = cabecalhos.findIndex(c => c.includes('realizada'));
         const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
         const idxResp = cabecalhos.findIndex(c => c.includes('responsabilidade'));
-
-        console.log("Índices encontrados:", { idxMercado, idxData, idxLucro, idxResp });
 
         let agrupador = {};
 
         for (let i = 1; i < linhas.length; i++) {
             const linha = linhas[i].trim();
-            if (!linha || linha.includes("Apostas correspondidas")) continue;
+            // Ignora linhas que são apenas avisos ou vazias
+            if (!linha || linha.toLowerCase().includes("apostas correspondidas") || linha.toLowerCase().includes("uk")) continue;
 
             const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            if (colunas.length < 3) continue;
+            if (colunas.length <= Math.max(idxMercado, idxLucro)) continue;
 
-            const mercado = colunas[idxMercado] ? colunas[idxMercado].replace(/["']/g, '').trim() : "Mercado Desconhecido";
-            const dataHora = idxData !== -1 ? colunas[idxData].replace(/["']/g, '').trim() : "Data Indisponível";
+            const mercado = colunas[idxMercado] ? colunas[idxMercado].replace(/["']/g, '').trim() : "Desconhecido";
+            const dataHora = idxData !== -1 ? colunas[idxData].replace(/["']/g, '').trim() : "Sem data";
             const lucro = tratarValor(colunas[idxLucro]);
             const resp = idxResp !== -1 ? tratarValor(colunas[idxResp]) : 0;
 
-            const chave = `${mercado}|${dataHora}`;
-
-            if (!agrupador[chave]) {
-                agrupador[chave] = { mercado, data: dataHora, pnl: 0, resp: 0 };
+            // Agrupa pelo nome do mercado para somar Back + Lay
+            if (!agrupador[mercado]) {
+                agrupador[mercado] = { mercado, data: dataHora, pnl: 0, resp: 0 };
             }
-            agrupador[chave].pnl += lucro;
-            agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
+            agrupador[mercado].pnl += lucro;
+            // A responsabilidade é o maior valor de risco registrado no mercado
+            agrupador[mercado].resp = Math.max(agrupador[mercado].resp, resp);
         }
 
-        const dadosFinais = Object.values(agrupador);
-        exibirDashboard(dadosFinais);
+        todasOperacoes = Object.values(agrupador);
+        aplicarFiltros();
         
-    } catch (error) { console.error("Erro ao carregar CSV:", error); }
+    } catch (error) { console.error("Erro no processamento:", error); }
 }
 
-function exibirDashboard(lista) {
-    const lucroLiquido = lista.reduce((acc, op) => acc + op.pnl, 0);
-    const comResp = lista.filter(op => op.resp > 0);
-    const mediaResp = comResp.length > 0 ? (comResp.reduce((acc, op) => acc + op.resp, 0) / comResp.length) : 0;
+function aplicarFiltros() {
+    const fEstrat = document.getElementById('filtro-estrategia').value;
+    const fGrafico = document.getElementById('tipo-grafico').value;
 
+    let filtradas = todasOperacoes.filter(op => {
+        let condEstrat = (fEstrat === 'TODAS' || 
+                         (fEstrat === 'MO' && op.mercado.includes('Resultado')) || 
+                         (fEstrat === 'LG' && op.mercado.includes('Placar')));
+        return condEstrat;
+    });
+
+    // Calcula Totais
+    const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
     document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
+    document.getElementById('lucro').style.color = lucroLiquido >= 0 ? 'green' : 'red';
+
+    const comResp = filtradas.filter(op => op.resp > 0);
+    const mediaResp = comResp.length > 0 ? (comResp.reduce((acc, op) => acc + op.resp, 0) / comResp.length) : 0;
     document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
 
+    atualizarTabela(filtradas);
+    renderizarGrafico(filtradas, fGrafico);
+}
+
+function renderizarGrafico(lista, tipoGrafico) {
+    const ctx = document.getElementById('meuGrafico').getContext('2d');
+    if (chart) chart.destroy();
+
+    const labels = lista.map(o => o.mercado.substring(0, 15) + '...');
+    const valores = lista.map(o => o.pnl);
+
+    chart = new Chart(ctx, {
+        type: tipoGrafico,
+        plugins: [ChartDataLabels],
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Lucro/Prejuízo (R$)',
+                data: valores,
+                backgroundColor: valores.map(v => v >= 0 ? '#4bc0c0' : '#ff6384'),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                datalabels: { anchor: 'end', align: 'top', formatter: (v) => v.toFixed(2) }
+            }
+        }
+    });
+}
+
+function atualizarTabela(lista) {
     const corpo = document.getElementById('corpo-tabela');
     corpo.innerHTML = "";
     lista.forEach(op => {
