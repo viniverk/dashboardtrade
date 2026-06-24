@@ -14,25 +14,25 @@ initializeApp(firebaseConfig);
 const auth = getAuth();
 const provider = new GoogleAuthProvider();
 let chart;
-
-// Variável Global para guardar as operações e permitir filtragem rápida
 let todasOperacoes = [];
 
-// Função auxiliar para interpretar a data da Betfair (ex: "23-jun-26")
+// Transforma a data da Betfair ("23-jun-26") em dados estruturados
 function parseDataBetfair(dataString) {
-    const partes = dataString.split(' ')[0].split('-'); // Pega "23-jun-26" e separa
-    if (partes.length !== 3) return { dataObj: new Date(0), dataStr: dataString, mesStr: dataString };
+    const partes = dataString.split(' ')[0].split('-');
+    if (partes.length !== 3) return null;
     
     const meses = { 'jan':0, 'fev':1, 'mar':2, 'abr':3, 'mai':4, 'jun':5, 'jul':6, 'ago':7, 'set':8, 'out':9, 'nov':10, 'dez':11 };
-    const dia = parseInt(partes[0]);
-    const mes = meses[partes[1].toLowerCase()] || 0;
-    const ano = 2000 + parseInt(partes[2]);
     
-    // Mes Formatado (ex: "Jun/2026")
-    const mesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-    const mesStr = `${mesNomes[mes]}/${ano}`;
-
-    return { dataObj: new Date(ano, mes, dia), dataStr: partes.join('-'), mesStr: mesStr };
+    const dia = partes[0].padStart(2, '0');
+    const mesNum = meses[partes[1].toLowerCase()] || 0;
+    const ano = "20" + partes[2];
+    
+    return { 
+        dataObj: new Date(ano, mesNum, dia), 
+        dataStr: `${dia}/${String(mesNum+1).padStart(2, '0')}/${ano}`, 
+        ano: ano,
+        mesStrNum: String(mesNum) // '0' para Jan, '5' para Jun
+    };
 }
 
 async function carregarDadosDoGitHub() {
@@ -43,7 +43,7 @@ async function carregarDadosDoGitHub() {
         const text = await response.text();
         const linhas = text.split('\n');
         
-        todasOperacoes = []; // Zera a lista antes de ler
+        todasOperacoes = [];
 
         for (let i = 1; i < linhas.length; i++) {
             const linhaLimpa = linhas[i].trim();
@@ -67,6 +67,7 @@ async function carregarDadosDoGitHub() {
             else if (mercadoLower.includes("placar correto")) categoriaEstrategia = "LG";
 
             const infoData = parseDataBetfair(horaInicio);
+            if (!infoData) continue;
 
             todasOperacoes.push({
                 mercado: mercadoOriginal,
@@ -75,105 +76,99 @@ async function carregarDadosDoGitHub() {
                 fim: dataResolucao,
                 pnl: resultado,
                 dataObj: infoData.dataObj,
-                dataStr: infoData.dataStr, // Data do dia
-                mesStr: infoData.mesStr    // Mês Consolidado
+                dataStr: infoData.dataStr,
+                ano: infoData.ano,
+                mes: infoData.mesStrNum
             });
         }
 
-        // Ordena as operações de forma cronológica (do mais antigo pro mais novo)
+        // Ordena tudo de forma cronológica
         todasOperacoes.sort((a, b) => a.dataObj - b.dataObj);
         
-        // Aplica os filtros assim que carrega os dados
+        preencherFiltrosDinamicos();
         aplicarFiltros();
         
     } catch (error) { 
-        console.error("Erro ao carregar o arquivo CSV:", error); 
+        console.error("Erro ao carregar CSV:", error); 
     }
 }
 
-// A CEREJA DO BOLO: Função que aplica as escolhas dos menus suspensos
-function aplicarFiltros() {
-    const filtroEstrat = document.getElementById('filtro-estrategia').value;
-    const visaoGrafico = document.getElementById('visao-grafico').value;
+// Preenche os menus "Ano" e "Data" automaticamente baseado no arquivo CSV
+function preencherFiltrosDinamicos() {
+    const selectAno = document.getElementById('filtro-ano');
+    const selectData = document.getElementById('filtro-data');
+    
+    const anosUnicos = [...new Set(todasOperacoes.map(o => o.ano))].sort();
+    const datasUnicas = [...new Set(todasOperacoes.map(o => o.dataStr))];
 
-    // 1. Filtra os dados com base na escolha de Estratégia
-    let operacoesFiltradas = todasOperacoes.filter(op => {
-        if (filtroEstrat === "TODAS") return true;
-        return op.estrategia === filtroEstrat;
-    });
+    selectAno.innerHTML = '<option value="TODOS">Todos</option>';
+    anosUnicos.forEach(ano => selectAno.innerHTML += `<option value="${ano}">${ano}</option>`);
 
-    // 2. Calcula KPIs (Dinâmico de acordo com o filtro)
-    const lucroLiquido = operacoesFiltradas.reduce((acc, op) => acc + op.pnl, 0);
-    const displayLucro = document.getElementById('lucro');
-    if (displayLucro) displayLucro.innerText = `R$ ${lucroLiquido.toFixed(2)}`;
-
-    // 3. Atualiza Tabela (Revertemos para o mais novo aparecer em cima)
-    atualizarTabela(operacoesFiltradas.slice().reverse());
-
-    // 4. Desenha o Gráfico escolhido
-    renderizarGrafico(operacoesFiltradas, visaoGrafico);
+    selectData.innerHTML = '<option value="TODAS">Todas as Datas</option>';
+    datasUnicas.forEach(data => selectData.innerHTML += `<option value="${data}">${data}</option>`);
 }
 
-function renderizarGrafico(lista, visao) {
+// O Núcleo do Filtro: Cruza todos os campos selecionados e atualiza a tela
+function aplicarFiltros() {
+    const fEstrat = document.getElementById('filtro-estrategia').value;
+    const fAno = document.getElementById('filtro-ano').value;
+    const fMes = document.getElementById('filtro-mes').value;
+    const fData = document.getElementById('filtro-data').value;
+    const fGrafico = document.getElementById('tipo-grafico').value;
+
+    let filtradas = todasOperacoes.filter(op => {
+        let condEstrat = (fEstrat === 'TODAS' || op.estrategia === fEstrat);
+        let condAno = (fAno === 'TODOS' || op.ano === fAno);
+        let condMes = (fMes === 'TODOS' || op.mes === fMes);
+        let condData = (fData === 'TODAS' || op.dataStr === fData);
+        return condEstrat && condAno && condMes && condData;
+    });
+
+    // 1. Atualiza o KPI de Lucro Líquido
+    const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
+    document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
+    document.getElementById('lucro').style.color = lucroLiquido >= 0 ? 'green' : 'red';
+
+    // 2. Atualiza a Tabela
+    atualizarTabela(filtradas.slice().reverse()); // Reverte para a mais recente em cima
+
+    // 3. Atualiza o Gráfico (Agrupando pela Data)
+    renderizarGrafico(filtradas, fGrafico);
+}
+
+// Renderiza o gráfico somando os valores de cada dia filtrado
+function renderizarGrafico(lista, tipoGrafico) {
     const ctx = document.getElementById('meuGrafico').getContext('2d');
     if (chart) chart.destroy();
 
-    let labels = [];
-    let data = [];
-    let tipoGrafico = 'bar';
-    let coresFundo = [];
-    let configDataset = {};
+    // Agrupa os lucros pelo Dia
+    let agrupado = {};
+    lista.forEach(o => {
+        if(!agrupado[o.dataStr]) agrupado[o.dataStr] = 0;
+        agrupado[o.dataStr] += o.pnl;
+    });
 
-    if (visao === 'estrategia') {
-        tipoGrafico = 'bar';
-        let mo = lista.filter(o => o.estrategia === 'MO').reduce((acc, o) => acc + o.pnl, 0);
-        let lg = lista.filter(o => o.estrategia === 'LG').reduce((acc, o) => acc + o.pnl, 0);
-        labels = ['Match Odds', 'Lay Goleada'];
-        data = [mo, lg];
-        coresFundo = ['#36a2eb', '#ff6384'];
-        configDataset = { backgroundColor: coresFundo };
+    const labels = Object.keys(agrupado);
+    const data = Object.values(agrupado);
 
-    } else if (visao === 'data') {
-        tipoGrafico = 'line';
-        let agrupado = {};
-        // Soma por Data (Dia a Dia)
-        lista.forEach(o => {
-            if(!agrupado[o.dataStr]) agrupado[o.dataStr] = 0;
-            agrupado[o.dataStr] += o.pnl;
-        });
-        labels = Object.keys(agrupado);
-        data = Object.values(agrupado);
-        configDataset = {
-            borderColor: '#36a2eb',
-            backgroundColor: 'rgba(54, 162, 235, 0.2)',
-            fill: true,
-            tension: 0.1
-        };
-
-    } else if (visao === 'mes') {
-        tipoGrafico = 'bar';
-        let agrupado = {};
-        // Soma por Mês Consolidado
-        lista.forEach(o => {
-            if(!agrupado[o.mesStr]) agrupado[o.mesStr] = 0;
-            agrupado[o.mesStr] += o.pnl;
-        });
-        labels = Object.keys(agrupado);
-        data = Object.values(agrupado);
-        // Cores Dinâmicas: Verde pra Lucro no mês, Vermelho para Prejuízo no mês
-        coresFundo = data.map(v => v >= 0 ? '#4bc0c0' : '#ff6384');
-        configDataset = { backgroundColor: coresFundo };
-    }
+    // Se for Barra, pinta lucro de verde e red de vermelho
+    // Se for linha, usa a linha azul de evolução com preenchimento
+    const isBar = tipoGrafico === 'bar';
+    const bgColors = isBar ? data.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)';
+    const bdColors = isBar ? data.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : '#36a2eb';
 
     chart = new Chart(ctx, {
-        type: tipoGrafico,
+        type: tipoGrafico, // 'bar' ou 'line'
         data: {
             labels: labels,
             datasets: [{
-                label: `Lucro (R$) - ${visao.toUpperCase()}`,
+                label: 'Lucro Consolidado (R$)',
                 data: data,
-                borderWidth: 1,
-                ...configDataset
+                backgroundColor: bgColors,
+                borderColor: bdColors,
+                borderWidth: 2,
+                fill: !isBar, // Preenchimento abaixo da linha
+                tension: 0.2  // Curva leve na linha
             }]
         },
         options: {
@@ -205,9 +200,10 @@ function atualizarTabela(lista) {
     });
 }
 
-// Event Listeners dos Menus Suspensos para alterarem os dados na hora do clique
-document.getElementById('filtro-estrategia').addEventListener('change', aplicarFiltros);
-document.getElementById('visao-grafico').addEventListener('change', aplicarFiltros);
+// Configura os gatilhos: Qualquer mudança em qualquer caixa recarrega os dados
+['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
+    document.getElementById(id).addEventListener('change', aplicarFiltros);
+});
 
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then(() => {
