@@ -12,7 +12,7 @@
     <div id="auth-container">
         <div class="login-box">
             <h2>Acesse o seu Dashboard</h2>
-            <p>Conecte-se com a sua conta Google para visualizar as suas métricas da Betfair Exchange.</p>
+            <p>Conecte-se com a sua conta Google para visualizar as suas métricas.</p>
             <button id="btn-login">Login com Google</button>
         </div>
     </div>
@@ -29,7 +29,7 @@
             </div>
             <div class="card">
                 <h3>Custos de Transmissões</h3>
-                <p id="custo-fixo">R$ 150,00 <span style="font-size: 11px; color: #888; display: block; margin-top: 5px;">Vence todo dia 16</span></p>
+                <p id="custo-fixo">R$ 150,00 <span style="font-size: 11px; color: #888; display: block; margin-top: 5px;">Vence dia 16</span></p>
             </div>
             <div class="card">
                 <h3>Aviso de Risco</h3>
@@ -37,31 +37,65 @@
             </div>
         </div>
 
-        <div class="filtros-container" style="margin-top: 20px; display: flex; gap: 20px; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <div style="flex: 1;">
-                <label for="filtro-estrategia" style="font-weight: bold; display: block; margin-bottom: 5px; color: #333;">Filtrar Dados (Estratégia):</label>
-                <select id="filtro-estrategia" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer;">
-                    <option value="TODAS">Todas as Estratégias</option>
-                    <option value="MO">Apenas Match Odds (Resultado)</option>
-                    <option value="LG">Apenas Lay Goleada (Placar)</option>
+        <div class="filtros-container" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 15px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            
+            <div style="flex: 1; min-width: 150px;">
+                <label style="font-weight: bold; font-size: 13px; color: #555;">Estratégia:</label>
+                <select id="filtro-estrategia" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
+                    <option value="TODAS">Todas</option>
+                    <option value="MO">Match Odds</option>
+                    <option value="LG">Lay Goleada</option>
                 </select>
             </div>
-            <div style="flex: 1;">
-                <label for="visao-grafico" style="font-weight: bold; display: block; margin-bottom: 5px; color: #333;">Visão do Gráfico:</label>
-                <select id="visao-grafico" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer;">
-                    <option value="estrategia">Por Estratégia (Em Colunas)</option>
-                    <option value="data">Consolidado por Data (Em Linhas)</option>
-                    <option value="mes">Consolidado por Mês (Em Barras)</option>
+
+            <div style="flex: 1; min-width: 120px;">
+                <label style="font-weight: bold; font-size: 13px; color: #555;">Ano:</label>
+                <select id="filtro-ano" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
+                    <option value="TODOS">Todos</option>
+                    </select>
+            </div>
+
+            <div style="flex: 1; min-width: 120px;">
+                <label style="font-weight: bold; font-size: 13px; color: #555;">Mês:</label>
+                <select id="filtro-mes" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
+                    <option value="TODOS">Todos</option>
+                    <option value="0">Janeiro</option>
+                    <option value="1">Fevereiro</option>
+                    <option value="2">Março</option>
+                    <option value="3">Abril</option>
+                    <option value="4">Maio</option>
+                    <option value="5">Junho</option>
+                    <option value="6">Julho</option>
+                    <option value="7">Agosto</option>
+                    <option value="8">Setembro</option>
+                    <option value="9">Outubro</option>
+                    <option value="10">Novembro</option>
+                    <option value="11">Dezembro</option>
+                </select>
+            </div>
+
+            <div style="flex: 1; min-width: 140px;">
+                <label style="font-weight: bold; font-size: 13px; color: #555;">Data Específica:</label>
+                <select id="filtro-data" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
+                    <option value="TODAS">Todas as Datas</option>
+                    </select>
+            </div>
+
+            <div style="flex: 1; min-width: 140px;">
+                <label style="font-weight: bold; font-size: 13px; color: #555;">Gráfico (Visual):</label>
+                <select id="tipo-grafico" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; background-color: #f0f8ff;">
+                    <option value="bar">Barras</option>
+                    <option value="line">Linhas</option>
                 </select>
             </div>
         </div>
 
-        <div class="chart-container" style="margin-top: 20px;">
+        <div class="chart-container" style="margin-top: 20px; background: white; padding: 20px; border-radius: 10px;">
             <canvas id="meuGrafico"></canvas>
         </div>
 
-        <div class="table-container" style="margin-top: 30px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h3>Listagem de Operações Recentes</h3>
+        <div class="table-container" style="margin-top: 20px; background: white; padding: 20px; border-radius: 10px;">
+            <h3>Listagem de Operações Filtradas</h3>
             <table id="tabela-operacoes" style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
                 <thead>
                     <tr style="border-bottom: 2px solid #ddd; background-color: #f8f9fa;">
@@ -71,8 +105,7 @@
                         <th style="padding: 10px;">Lucro/Perda (R$)</th>
                     </tr>
                 </thead>
-                <tbody id="corpo-tabela">
-                    </tbody>
+                <tbody id="corpo-tabela"></tbody>
             </table>
         </div>
     </div>
