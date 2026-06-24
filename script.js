@@ -19,7 +19,6 @@ let chart;
 
 Chart.register(ChartDataLabels);
 
-																			   
 function tratarValor(valor) {
     if (!valor) return 0;
     let s = valor.toString().replace(/["'\sR$]/g, '');
@@ -29,7 +28,6 @@ function tratarValor(valor) {
     return isNaN(num) ? 0 : num;
 }
 
-					   
 const monthOrder = {
     "jan": 0, "feb": 1, "fev": 1, "mar": 2, "apr": 3, "abr": 3, "may": 4, "mai": 4,
     "jun": 5, "jul": 6, "aug": 7, "ago": 7, "sep": 8, "set": 8, "oct": 9, "out": 9,
@@ -44,10 +42,8 @@ async function carregarDadosDoGitHub() {
         const text = await response.text();
         const linhas = text.split('\n');
         
-											  
         const cabecalhos = linhas[0].toLowerCase().replace(/\r/g, '').split(',');
         
-													   
         const idxData = cabecalhos.findIndex(c => c.includes('resolvida'));
         const idxDesc = cabecalhos.findIndex(c => c.includes('descri'));
         const idxOdd = cabecalhos.findIndex(c => c.includes('cota'));
@@ -63,7 +59,6 @@ async function carregarDadosDoGitHub() {
             const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
 
-																							 
             let mercadoNome = "Desconhecido";
             if (idxDesc !== -1 && colunas[idxDesc]) {
                 mercadoNome = colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim();
@@ -87,17 +82,13 @@ async function carregarDadosDoGitHub() {
                 }
             }
 
-																																		  
             const chave = `${mercadoNome}|${dataLimpa}`;
 
             if (!agrupador[chave]) {
                 agrupador[chave] = { mercado: mercadoNome, data: dataHoraCompleta, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
             }
             
-																	 
             agrupador[chave].pnl += lucro;
-			
-																										  
             agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
             agrupador[chave].odd = Math.max(agrupador[chave].odd, odd);
         }
@@ -140,7 +131,6 @@ function aplicarFiltros() {
     const filtradas = todasOperacoes.filter(op => {
         const mercLower = op.mercado.toLowerCase();
         
-																											   
         const condEstrat = (fEstrat === 'TODAS' || 
                            (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || 
                            (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
