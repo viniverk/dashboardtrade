@@ -104,22 +104,23 @@
             <canvas id="meuGrafico" style="height: 100%; width: 100%;"></canvas>
         </div>
 
-        <div class="table-container" style="margin-top: 20px; background: white; padding: 20px; border-radius: 10px;">
-            <h3>Listagem de Operações Filtradas</h3>
-            <table id="tabela-operacoes" style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
-                <thead>
-                    <tr style="border-bottom: 2px solid #ddd; background-color: #f8f9fa;">
-                        <th style="padding: 10px;">Mercado</th>
-                        <th style="padding: 10px;">Data/Hora</th>
-                        <th style="padding: 10px;">ODD</th>
-                        <th style="padding: 10px;">Responsabilidade</th>
-                        <th style="padding: 10px;">Lucro/Perda (R$)</th>
-                    </tr>
-                </thead>
-                <tbody id="corpo-tabela"></tbody>
-            </table>
-        </div>
-    </div>
+        <div class="table-container" ...>
+    <h3>Listagem de Operações Filtradas</h3>
+    <input type="text" id="filtro-texto-mercado" placeholder="Buscar mercado..." style="width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #ccc;">
+    
+    <table id="tabela-operacoes" ...>
+        <thead>
+            <tr style="border-bottom: 2px solid #ddd; background-color: #f8f9fa; cursor: pointer;">
+                <th onclick="ordenarTabela('mercado')" style="padding: 10px;">Mercado ↕</th>
+                <th onclick="ordenarTabela('data')" style="padding: 10px;">Data/Hora ↕</th>
+                <th onclick="ordenarTabela('odd')" style="padding: 10px;">ODD ↕</th>
+                <th onclick="ordenarTabela('resp')" style="padding: 10px;">Responsabilidade ↕</th>
+                <th onclick="ordenarTabela('pnl')" style="padding: 10px;">Lucro/Perda (R$) ↕</th>
+            </tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+    </table>
+</div>
 
     <script type="module" src="script.js"></script>
 </body>
