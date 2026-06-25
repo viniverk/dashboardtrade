@@ -16,6 +16,7 @@ const provider = new GoogleAuthProvider();
 
 let todasOperacoes = [];
 let chart;
+let sortDirection = 1; // Controla a direção da ordenação (crescente/decrescente)
 
 Chart.register(ChartDataLabels);
 
@@ -109,6 +110,10 @@ function aplicarFiltros() {
     const fMes = document.getElementById('filtro-mes').value; 
     const fData = document.getElementById('filtro-data').value;
     const fGrafico = document.getElementById('tipo-grafico').value;
+    
+    // Leitura do campo de pesquisa por texto
+    const filtroPesquisaElem = document.getElementById('filtro-texto-mercado');
+    const fTexto = filtroPesquisaElem ? filtroPesquisaElem.value.toLowerCase() : "";
 
     const mesesMap = {
         "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun",
@@ -118,15 +123,20 @@ function aplicarFiltros() {
 
     const filtradas = todasOperacoes.filter(op => {
         const mercLower = op.mercado.toLowerCase();
+        
+        // Estratégia via Dropdown
         const condEstrat = (fEstrat === 'TODAS' || 
                            (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || 
                            (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
+                           
+        // Filtro via texto (busca em todo o nome do jogo/mercado)
+        const condTexto = mercLower.includes(fTexto);
                            
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
         const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
         const condData = (fData === 'TODAS' || op.dataLimpa === fData);
         
-        return condEstrat && condAno && condMes && condData;
+        return condEstrat && condTexto && condAno && condMes && condData;
     });
 
     const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
@@ -209,10 +219,20 @@ function atualizarTabela(lista) {
     const corpo = document.getElementById('corpo-tabela');
     if(!corpo) return;
     corpo.innerHTML = "";
-    lista.slice().reverse().forEach(op => {
+    
+    // Removi o .slice().reverse() para que a tabela obedeça fielmente à ordenação selecionada.
+    lista.forEach(op => {
         const tr = document.createElement('tr');
+        
+        // Formata os nomes (Substitui "Resultado da partida" por "Match Odds" etc.)
+        let displayMercado = op.mercado;
+        displayMercado = displayMercado.replace(/Resultado da partida/ig, "Match Odds")
+                                       .replace(/Resultado/ig, "Match Odds")
+                                       .replace(/Placar correto/ig, "Lay Goleada")
+                                       .replace(/Placar/ig, "Lay Goleada");
+
         tr.innerHTML = `
-            <td style="padding:10px; font-size: 13px;">${op.mercado}</td>
+            <td style="padding:10px; font-size: 13px;">${displayMercado}</td>
             <td style="padding:10px; font-size: 13px;">${op.data}</td>
             <td style="padding:10px; font-size: 13px; font-weight: bold; color: #1e40af;">${op.odd > 0 ? op.odd.toFixed(2) : '-'}</td>
             <td style="padding:10px; font-size: 13px;">${op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-'}</td>
@@ -222,10 +242,53 @@ function atualizarTabela(lista) {
     });
 }
 
+// ----- FUNÇÃO GLOBAL DE ORDENAÇÃO -----
+window.ordenarTabela = (coluna) => {
+    sortDirection *= -1; // Alterna entre crescente e decrescente
+    
+    todasOperacoes.sort((a, b) => {
+        let valA = a[coluna];
+        let valB = b[coluna];
+        
+        // Tratamento especial para ordenar Datas no formato "DD-MMM-YY HH:MM:SS"
+        if (coluna === 'data') {
+            const getTimestamp = (dStr) => {
+                if (!dStr || dStr === 'Sem data') return 0;
+                const parts = dStr.split(/[\s-:]+/); // Quebra em: [DD, MMM, YY, HH, MM, SS]
+                if (parts.length < 3) return 0;
+                const dia = parseInt(parts[0]);
+                const mes = monthOrder[parts[1].toLowerCase()] || 0;
+                const ano = parseInt(parts[2]) + 2000;
+                const hr = parts[3] ? parseInt(parts[3]) : 0;
+                const min = parts[4] ? parseInt(parts[4]) : 0;
+                const sec = parts[5] ? parseInt(parts[5]) : 0;
+                return new Date(ano, mes, dia, hr, min, sec).getTime();
+            };
+            valA = getTimestamp(valA);
+            valB = getTimestamp(valB);
+        }
+
+        // Ordenação Alfabética (para a coluna Mercado)
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return valA.localeCompare(valB) * sortDirection;
+        }
+        
+        // Ordenação Numérica (para Odd, Resp e PnL)
+        return (valA - valB) * sortDirection;
+    });
+    
+    aplicarFiltros(); // Re-renderiza a tabela após ordenar
+};
+
+// Eventos de gatilho
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.addEventListener('change', aplicarFiltros);
 });
+
+// Evento de Pesquisa via Texto em tempo real
+const buscaMercado = document.getElementById('filtro-texto-mercado');
+if(buscaMercado) buscaMercado.addEventListener('input', aplicarFiltros);
 
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then(() => {
