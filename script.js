@@ -16,7 +16,7 @@ const provider = new GoogleAuthProvider();
 
 let todasOperacoes = [];
 let chart;
-let sortDirection = 1; // Controla a direção da ordenação (crescente/decrescente)
+let sortDirection = 1;
 
 Chart.register(ChartDataLabels);
 
@@ -50,6 +50,7 @@ async function carregarDadosDoGitHub() {
         const idxOdd = cabecalhos.findIndex(c => c.includes('cota'));
         const idxResp = cabecalhos.findIndex(c => c.includes('risco'));
         const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
+        const idxStake = cabecalhos.findIndex(c => c.includes('valor apostado') || c.includes('stake')); // Captura a Stake
 
         let agrupador = {};
 
@@ -65,6 +66,7 @@ async function carregarDadosDoGitHub() {
             const lucro = tratarValor(colunas[idxLucro]);
             const resp = tratarValor(colunas[idxResp]);
             const odd = tratarValor(colunas[idxOdd]);
+            const stake = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
             
             const dataLimpa = dataHoraCompleta.split(' ')[0];
             const partesData = dataLimpa.split('-');
@@ -74,12 +76,13 @@ async function carregarDadosDoGitHub() {
             const chave = `${mercadoNome}|${dataLimpa}`;
 
             if (!agrupador[chave]) {
-                agrupador[chave] = { mercado: mercadoNome, data: dataHoraCompleta, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0 };
+                agrupador[chave] = { mercado: mercadoNome, data: dataHoraCompleta, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0, stake: 0 };
             }
             
             agrupador[chave].pnl += lucro;
             agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
             agrupador[chave].odd = Math.max(agrupador[chave].odd, odd);
+            agrupador[chave].stake = Math.max(agrupador[chave].stake, stake);
         }
 
         todasOperacoes = Object.values(agrupador);
@@ -111,7 +114,6 @@ function aplicarFiltros() {
     const fData = document.getElementById('filtro-data').value;
     const fGrafico = document.getElementById('tipo-grafico').value;
     
-    // Leitura do campo de pesquisa por texto
     const filtroPesquisaElem = document.getElementById('filtro-texto-mercado');
     const fTexto = filtroPesquisaElem ? filtroPesquisaElem.value.toLowerCase() : "";
 
@@ -123,15 +125,11 @@ function aplicarFiltros() {
 
     const filtradas = todasOperacoes.filter(op => {
         const mercLower = op.mercado.toLowerCase();
-        
-        // Estratégia via Dropdown
         const condEstrat = (fEstrat === 'TODAS' || 
                            (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || 
                            (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
                            
-        // Filtro via texto (busca em todo o nome do jogo/mercado)
         const condTexto = mercLower.includes(fTexto);
-                           
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
         const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
         const condData = (fData === 'TODAS' || op.dataLimpa === fData);
@@ -159,13 +157,60 @@ function aplicarFiltros() {
     const unidades = mediaResp > 0 ? (lucroLiquido / mediaResp).toFixed(2) : 0;
     const elRoiStake = document.getElementById('roi-stake');
     if (elRoiStake) {
-        const sinal = unidades > 0 ? '+' : '';
-        elRoiStake.innerText = `${roiStake.toFixed(2)}% (${sinal}${unidades} und)`;
+        const roiDisplay = Math.min(Math.abs(roiStake), 9999); 
+        const sinal = roiStake > 0 ? '+' : (roiStake < 0 ? '-' : '');
+        elRoiStake.innerText = `${sinal}${roiDisplay.toFixed(2)}% (${sinal}${Math.abs(unidades)} und)`;
         elRoiStake.style.color = roiStake >= 0 ? 'green' : 'red';
     }
 
     atualizarTabela(filtradas);
     renderizarGrafico(filtradas, fGrafico);
+    atualizarRanking(filtradas); // Atualiza os recordes do Ranking
+}
+
+// ----- NOVA FUNÇÃO DE RANKING -----
+function atualizarRanking(lista) {
+    if (!lista || lista.length === 0) {
+        ['green', 'red', 'resp', 'odd', 'stake'].forEach(id => {
+            const el = document.getElementById(`rank-${id}`);
+            const elDesc = document.getElementById(`rank-${id}-desc`);
+            if(el) el.innerText = id === 'odd' ? '0.00' : 'R$ 0,00';
+            if(elDesc) elDesc.innerText = '-';
+        });
+        return;
+    }
+
+    let maxGreen = lista[0], maxRed = lista[0];
+    let maxResp = lista[0], maxOdd = lista[0], maxStake = lista[0];
+
+    lista.forEach(op => {
+        if (op.pnl > maxGreen.pnl) maxGreen = op;
+        if (op.pnl < maxRed.pnl) maxRed = op;
+        if (op.resp > maxResp.resp) maxResp = op;
+        if (op.odd > maxOdd.odd) maxOdd = op;
+        if (op.stake > maxStake.stake) maxStake = op;
+    });
+
+    const formatDesc = (op) => {
+        let m = op.mercado;
+        m = m.replace(/Resultado da partida/ig, "Match Odds").replace(/Resultado/ig, "Match Odds").replace(/Placar correto/ig, "Lay Goleada").replace(/Placar/ig, "Lay Goleada");
+        return `${m}\nData: ${op.dataLimpa}`;
+    };
+
+    document.getElementById('rank-green').innerText = `R$ ${maxGreen.pnl.toFixed(2)}`;
+    document.getElementById('rank-green-desc').innerText = formatDesc(maxGreen);
+
+    document.getElementById('rank-red').innerText = `R$ ${maxRed.pnl.toFixed(2)}`;
+    document.getElementById('rank-red-desc').innerText = formatDesc(maxRed);
+
+    document.getElementById('rank-resp').innerText = `R$ ${maxResp.resp.toFixed(2)}`;
+    document.getElementById('rank-resp-desc').innerText = formatDesc(maxResp);
+
+    document.getElementById('rank-odd').innerText = maxOdd.odd.toFixed(2);
+    document.getElementById('rank-odd-desc').innerText = formatDesc(maxOdd);
+
+    document.getElementById('rank-stake').innerText = `R$ ${maxStake.stake.toFixed(2)}`;
+    document.getElementById('rank-stake-desc').innerText = formatDesc(maxStake);
 }
 
 function renderizarGrafico(lista, tipoGrafico) {
@@ -220,11 +265,9 @@ function atualizarTabela(lista) {
     if(!corpo) return;
     corpo.innerHTML = "";
     
-    // Removi o .slice().reverse() para que a tabela obedeça fielmente à ordenação selecionada.
     lista.forEach(op => {
         const tr = document.createElement('tr');
         
-        // Formata os nomes (Substitui "Resultado da partida" por "Match Odds" etc.)
         let displayMercado = op.mercado;
         displayMercado = displayMercado.replace(/Resultado da partida/ig, "Match Odds")
                                        .replace(/Resultado/ig, "Match Odds")
@@ -242,19 +285,17 @@ function atualizarTabela(lista) {
     });
 }
 
-// ----- FUNÇÃO GLOBAL DE ORDENAÇÃO -----
 window.ordenarTabela = (coluna) => {
-    sortDirection *= -1; // Alterna entre crescente e decrescente
+    sortDirection *= -1; 
     
     todasOperacoes.sort((a, b) => {
         let valA = a[coluna];
         let valB = b[coluna];
         
-        // Tratamento especial para ordenar Datas no formato "DD-MMM-YY HH:MM:SS"
         if (coluna === 'data') {
             const getTimestamp = (dStr) => {
                 if (!dStr || dStr === 'Sem data') return 0;
-                const parts = dStr.split(/[\s-:]+/); // Quebra em: [DD, MMM, YY, HH, MM, SS]
+                const parts = dStr.split(/[\s-:]+/);
                 if (parts.length < 3) return 0;
                 const dia = parseInt(parts[0]);
                 const mes = monthOrder[parts[1].toLowerCase()] || 0;
@@ -268,25 +309,46 @@ window.ordenarTabela = (coluna) => {
             valB = getTimestamp(valB);
         }
 
-        // Ordenação Alfabética (para a coluna Mercado)
         if (typeof valA === 'string' && typeof valB === 'string') {
             return valA.localeCompare(valB) * sortDirection;
         }
         
-        // Ordenação Numérica (para Odd, Resp e PnL)
         return (valA - valB) * sortDirection;
     });
     
-    aplicarFiltros(); // Re-renderiza a tabela após ordenar
+    aplicarFiltros(); 
 };
 
-// Eventos de gatilho
+// ----- LÓGICA DAS ABAS (TABS) -----
+const btnDash = document.getElementById('btn-aba-dashboard');
+const btnRank = document.getElementById('btn-aba-ranking');
+const conteDash = document.getElementById('conteudo-dashboard');
+const conteRank = document.getElementById('conteudo-ranking');
+
+if(btnDash && btnRank) {
+    btnDash.addEventListener('click', () => {
+        conteDash.style.display = 'block';
+        conteRank.style.display = 'none';
+        btnDash.style.background = '#1e40af';
+        btnDash.style.color = 'white';
+        btnRank.style.background = '#e5e7eb';
+        btnRank.style.color = '#374151';
+    });
+    btnRank.addEventListener('click', () => {
+        conteDash.style.display = 'none';
+        conteRank.style.display = 'block';
+        btnRank.style.background = '#1e40af';
+        btnRank.style.color = 'white';
+        btnDash.style.background = '#e5e7eb';
+        btnDash.style.color = '#374151';
+    });
+}
+
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.addEventListener('change', aplicarFiltros);
 });
 
-// Evento de Pesquisa via Texto em tempo real
 const buscaMercado = document.getElementById('filtro-texto-mercado');
 if(buscaMercado) buscaMercado.addEventListener('input', aplicarFiltros);
 
