@@ -21,6 +21,7 @@
 
     <div id="dashboard" style="display:none;">
         
+        <!-- CABEÇALHO COM MENU DE ABAS -->
         <header style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
             <h1 style="margin: 0;">Dashboard de Resultados</h1>
             
@@ -30,6 +31,7 @@
             </div>
         </header>
         
+        <!-- FILTROS GLOBAIS -->
         <div class="filtros-container" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 15px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
             <div style="flex: 1; min-width: 150px;">
                 <label style="font-weight: bold; font-size: 13px; color: #555;">Estratégia:</label>
@@ -78,6 +80,7 @@
             </div>
         </div>
 
+        <!-- ABA 1: VISÃO GERAL -->
         <div id="conteudo-dashboard">
             <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px;">
                 <div class="card" style="flex: 1; min-width: 140px;">
@@ -106,9 +109,9 @@
                 <canvas id="meuGrafico" style="height: 100%; width: 100%;"></canvas>
             </div>
 
+            <!-- TABELA COM ORDENAÇÃO -->
             <div class="table-container" style="margin-top: 20px; background: white; padding: 20px; border-radius: 10px;">
                 <h3>Listagem de Operações Filtradas</h3>
-                <input type="text" id="filtro-texto-mercado" placeholder="Buscar mercado ou jogo específico..." style="width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #ccc;">
                 
                 <table id="tabela-operacoes" style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
                     <thead>
@@ -125,6 +128,7 @@
             </div>
         </div>
 
+        <!-- ABA 2: RANKING -->
         <div id="conteudo-ranking" style="display:none; margin-top: 20px;">
             <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px;">
                 <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #10b981;">
