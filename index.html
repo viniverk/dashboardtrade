@@ -21,9 +21,13 @@
 
     <div id="dashboard" style="display:none;">
         
-        <!-- CABEÇALHO COM MENU DE ABAS -->
         <header style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-            <h1 style="margin: 0;">Dashboard de Resultados</h1>
+            <div>
+                <h1 style="margin: 0;">Dashboard de Resultados</h1>
+                <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: #1e3a8a;">
+                    Banca Total: <span id="texto-banca-superior">R$ 0,00</span>
+                </p>
+            </div>
             
             <div class="abas" style="display: flex; gap: 10px;">
                 <button id="btn-aba-dashboard" style="padding: 10px 20px; cursor: pointer; background: #1e40af; color: white; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">📊 Visão Geral</button>
@@ -31,7 +35,6 @@
             </div>
         </header>
         
-        <!-- FILTROS GLOBAIS -->
         <div class="filtros-container" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 15px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
             <div style="flex: 1; min-width: 150px;">
                 <label style="font-weight: bold; font-size: 13px; color: #555;">Estratégia:</label>
@@ -80,9 +83,16 @@
             </div>
         </div>
 
-        <!-- ABA 1: VISÃO GERAL -->
         <div id="conteudo-dashboard">
             <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px;">
+                <div class="card" style="flex: 1; min-width: 180px; background-color: #f0fdf4; border: 1px solid #bbf7d0;">
+                    <h3>Definir Banca (Nuvem)</h3>
+                    <div style="display: flex; align-items: center; margin-top: 8px; gap: 5px;">
+                        <span style="font-size: 14px; font-weight: bold; color: #166534;">R$</span>
+                        <input type="number" id="input-banca-usuario" value="1000.00" step="50" style="width: 100%; padding: 6px; border: 1px solid #abc; border-radius: 4px; font-size: 15px; font-weight: bold; color: #166534;">
+                        <button id="btn-salvar-banca" style="padding: 7px 12px; background: #166534; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; transition: 0.2s;">Salvar</button>
+                    </div>
+                </div>
                 <div class="card" style="flex: 1; min-width: 140px;">
                     <h3>Lucro Líquido</h3>
                     <p id="lucro">R$ 0,00</p>
@@ -92,11 +102,11 @@
                     <p id="media-responsabilidade" style="color: #d97706;">R$ 0,00</p>
                 </div>
                 <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3 title="Representa o seu Yield sobre o volume total arriscado">% de Lucro</h3>
+                    <h3 title="Representa a porcentagem de lucro em relação à Stake Média">% de Lucro s/ Stake</h3>
                     <p id="pct-lucro">0,00%</p>
                 </div>
                 <div class="card" style="flex: 1; min-width: 180px;">
-                    <h3 title="Retorno sobre a Stake (Unidades Ganhas/Perdidas)">ROI s/ Stake Média</h3>
+                    <h3 title="Retorno sobre a Stake Média (Unidades Ganhas/Perdidas)">ROI s/ Stake Média</h3>
                     <p id="roi-stake">0,00%</p>
                 </div>
                 <div class="card" style="flex: 1; min-width: 140px;">
@@ -109,7 +119,6 @@
                 <canvas id="meuGrafico" style="height: 100%; width: 100%;"></canvas>
             </div>
 
-            <!-- TABELA COM ORDENAÇÃO -->
             <div class="table-container" style="margin-top: 20px; background: white; padding: 20px; border-radius: 10px;">
                 <h3>Listagem de Operações Filtradas</h3>
                 
@@ -128,7 +137,6 @@
             </div>
         </div>
 
-        <!-- ABA 2: RANKING -->
         <div id="conteudo-ranking" style="display:none; margin-top: 20px;">
             <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px;">
                 <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #10b981;">
