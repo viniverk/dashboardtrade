@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAvWlAUn5hzr-rWAaTZDAkVsPOJhlkzDC4",
@@ -10,13 +11,15 @@ const firebaseConfig = {
     appId: "1:911731188311:web:fcdc39a0557d471fb8f912"
 };
 
-initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 const auth = getAuth();
+const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 let todasOperacoes = [];
 let chart;
 let sortDirection = 1;
+let usuarioAtual = null;
 
 Chart.register(ChartDataLabels);
 
@@ -35,6 +38,47 @@ const monthOrder = {
     "nov": 10, "dec": 11, "dez": 11
 };
 
+// --- FUNÇÕES DA BANCA NO FIREBASE ---
+async function puxarBancaDoFirebase(user) {
+    if (!user) return;
+    try {
+        const docRef = doc(db, "configuracoes_banca", user.uid);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            const valorBanca = docSnap.data().valorBanca || 1000;
+            document.getElementById('input-banca-usuario').value = parseFloat(valorBanca).toFixed(2);
+            document.getElementById('texto-banca-superior').innerText = `R$ ${parseFloat(valorBanca).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        } else {
+            // Se o usuário não tiver banca criada ainda, gera com valor padrão de 1000
+            document.getElementById('texto-banca-superior').innerText = "R$ 1.000,00";
+        }
+    } catch (e) {
+        console.error("Erro ao ler banca:", e);
+    }
+}
+
+async function salvarBancaNoFirebase() {
+    if (!usuarioAtual) {
+        alert("Você precisa estar logado para salvar a banca!");
+        return;
+    }
+    const campoInput = document.getElementById('input-banca-usuario');
+    const novoValor = parseFloat(campoInput.value) || 0;
+    
+    try {
+        const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
+        await setDoc(docRef, { valorBanca: novoValor }, { merge: true });
+        
+        // Atualiza o indicador textual na parte superior da tela
+        document.getElementById('texto-banca-superior').innerText = `R$ ${novoValor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        alert("Banca salva com sucesso na sua conta Google!");
+    } catch (e) {
+        console.error("Erro ao salvar banca:", e);
+        alert("Falha ao salvar dados no Firebase.");
+    }
+}
+
 async function carregarDadosDoGitHub() {
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
     
@@ -50,15 +94,15 @@ async function carregarDadosDoGitHub() {
         const idxOdd = cabecalhos.findIndex(c => c.includes('cota'));
         const idxResp = cabecalhos.findIndex(c => c.includes('risco'));
         const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
-        const idxStake = cabecalhos.findIndex(c => c.includes('valor apostado') || c.includes('stake')); // Captura a Stake
+        const idxStake = cabecalhos.findIndex(c => c.includes('valor apostado') || c.includes('stake'));
 
         let agrupador = {};
 
         for (let i = 1; i < linhas.length; i++) {
-            const linha = linhas[i].trim().replace(/\r/g, '');
-            if (!linha || linha.toLowerCase().includes("status")) continue;
+            const lineClean = linhas[i].trim().replace(/\r/g, '');
+            if (!lineClean || lineClean.toLowerCase().includes("status")) continue;
 
-            const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const colunas = lineClean.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
 
             let mercadoNome = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim() : "Desconhecido";
@@ -100,11 +144,14 @@ function preencherFiltrosDinamicos() {
     const selAno = document.getElementById('filtro-ano');
     const selData = document.getElementById('filtro-data');
     
-    selAno.innerHTML = '<option value="TODOS">Todos</option>';
-    anos.forEach(a => selAno.innerHTML += `<option value="${a}">${a}</option>`);
-
-    selData.innerHTML = '<option value="TODAS">Todas as Datas</option>';
-    datas.forEach(d => selData.innerHTML += `<option value="${d}">${d}</option>`);
+    if(selAno) {
+        selAno.innerHTML = '<option value="TODOS">Todos</option>';
+        anos.forEach(a => selAno.innerHTML += `<option value="${a}">${a}</option>`);
+    }
+    if(selData) {
+        selData.innerHTML = '<option value="TODAS">Todas as Datas</option>';
+        datas.forEach(d => selData.innerHTML += `<option value="${d}">${d}</option>`);
+    }
 }
 
 function aplicarFiltros() {
@@ -113,9 +160,6 @@ function aplicarFiltros() {
     const fMes = document.getElementById('filtro-mes').value; 
     const fData = document.getElementById('filtro-data').value;
     const fGrafico = document.getElementById('tipo-grafico').value;
-    
-    const filtroPesquisaElem = document.getElementById('filtro-texto-mercado');
-    const fTexto = filtroPesquisaElem ? filtroPesquisaElem.value.toLowerCase() : "";
 
     const mesesMap = {
         "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun",
@@ -129,46 +173,44 @@ function aplicarFiltros() {
                            (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || 
                            (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
                            
-        const condTexto = mercLower.includes(fTexto);
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
         const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
         const condData = (fData === 'TODAS' || op.dataLimpa === fData);
         
-        return condEstrat && condTexto && condAno && condMes && condData;
+        return condEstrat && condAno && condMes && condData;
     });
 
     const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
     document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
     document.getElementById('lucro').style.color = lucroLiquido >= 0 ? 'green' : 'red';
 
-    const comResp = filtradas.filter(op => op.resp > 0);
-    const totalResp = comResp.reduce((acc, op) => acc + op.resp, 0);
-    const mediaResp = comResp.length > 0 ? (totalResp / comResp.length) : 0;
-    document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
+    const comStake = filtradas.filter(op => op.stake > 0);
+    const totalStake = filtradas.reduce((acc, op) => acc + op.stake, 0);
+    const mediaStake = filtradas.length > 0 ? (totalStake / filtradas.length) : 0;
+    document.getElementById('media-responsabilidade').innerText = `R$ ${mediaStake.toFixed(2)}`;
 
-    const pctLucro = totalResp > 0 ? (lucroLiquido / totalResp) * 100 : 0;
+    const pctLucro = mediaStake > 0 ? (lucroLiquido / mediaStake) * 100 : 0;
     const elPctLucro = document.getElementById('pct-lucro');
     if (elPctLucro) {
         elPctLucro.innerText = `${pctLucro.toFixed(2)}%`;
         elPctLucro.style.color = pctLucro >= 0 ? 'green' : 'red';
     }
 
-    const roiStake = mediaResp > 0 ? (lucroLiquido / mediaResp) * 100 : 0;
-    const unidades = mediaResp > 0 ? (lucroLiquido / mediaResp).toFixed(2) : 0;
+    const roiStake = mediaStake > 0 ? (lucroLiquido / mediaStake) * 100 : 0;
+    const unidades = mediaStake > 0 ? (lucroLiquido / mediaStake).toFixed(2) : 0;
     const elRoiStake = document.getElementById('roi-stake');
     if (elRoiStake) {
         const roiDisplay = Math.min(Math.abs(roiStake), 9999); 
         const sinal = roiStake > 0 ? '+' : (roiStake < 0 ? '-' : '');
-        elRoiStake.innerText = `${sinal}${roiDisplay.toFixed(2)}% (${sinal}${Math.abs(unidades)} und)`;
+        elRoiStake.innerText = `${roiStake.toFixed(2)}% (${sinal}${unidades} und)`;
         elRoiStake.style.color = roiStake >= 0 ? 'green' : 'red';
     }
 
     atualizarTabela(filtradas);
     renderizarGrafico(filtradas, fGrafico);
-    atualizarRanking(filtradas); // Atualiza os recordes do Ranking
+    atualizarRanking(filtradas);
 }
 
-// ----- NOVA FUNÇÃO DE RANKING -----
 function atualizarRanking(lista) {
     if (!lista || lista.length === 0) {
         ['green', 'red', 'resp', 'odd', 'stake'].forEach(id => {
@@ -319,7 +361,6 @@ window.ordenarTabela = (coluna) => {
     aplicarFiltros(); 
 };
 
-// ----- LÓGICA DAS ABAS (TABS) -----
 const btnDash = document.getElementById('btn-aba-dashboard');
 const btnRank = document.getElementById('btn-aba-ranking');
 const conteDash = document.getElementById('conteudo-dashboard');
@@ -349,13 +390,27 @@ if(btnDash && btnRank) {
     if(el) el.addEventListener('change', aplicarFiltros);
 });
 
-const buscaMercado = document.getElementById('filtro-texto-mercado');
-if(buscaMercado) buscaMercado.addEventListener('input', aplicarFiltros);
+// Listener para o botão de salvar banca
+const btnSalvarBanca = document.getElementById('btn-salvar-banca');
+if(btnSalvarBanca) btnSalvarBanca.addEventListener('click', salvarBancaNoFirebase);
 
 document.getElementById('btn-login').addEventListener('click', () => {
-    signInWithPopup(auth, provider).then(() => {
+    signInWithPopup(auth, provider).then((result) => {
+        usuarioAtual = result.user;
         document.getElementById('auth-container').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
+        puxarBancaDoFirebase(usuarioAtual);
         carregarDadosDoGitHub();
     }).catch(error => console.error("Erro no login:", error));
+});
+
+// Mantém o estado do usuário ativo caso recarregue a página sem deslogar
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        usuarioAtual = user;
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        puxarBancaDoFirebase(usuarioAtual);
+        carregarDadosDoGitHub();
+    }
 });
