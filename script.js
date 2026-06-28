@@ -22,7 +22,7 @@ let sortDirection = 1;
 let usuarioAtual = null;
 
 let bancaNuvem = 1000.00; 
-let bancaInicialNuvem = 750.00; // Nova variável
+let bancaInicialNuvem = 750.00; 
 
 Chart.register(ChartDataLabels);
 
@@ -41,7 +41,6 @@ const monthOrder = {
     "nov": 10, "dec": 11, "dez": 11
 };
 
-// --- CÁLCULO ISOLADO DO LUCRO LÍQUIDO REAL ---
 function atualizarLucroLiquidoReal() {
     const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
     const elLucroLiq = document.getElementById('lucro-liquido');
@@ -51,7 +50,6 @@ function atualizarLucroLiquidoReal() {
     }
 }
 
-// --- FUNÇÕES DA BANCA NO FIREBASE ---
 async function puxarBancaDoFirebase(user) {
     if (!user) return;
     try {
@@ -66,11 +64,8 @@ async function puxarBancaDoFirebase(user) {
             bancaInicialNuvem = 750;
         }
         
-        // Atualiza os inputs na aba Configurações
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
         document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
-        
-        // Atualiza o topo do dashboard
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         
         atualizarLucroLiquidoReal();
@@ -211,20 +206,23 @@ function aplicarFiltros() {
     document.getElementById('lucro-bruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
     document.getElementById('lucro-bruto').style.color = lucroBruto >= 0 ? 'green' : 'red';
 
-    const comStake = filtradas.filter(op => op.stake > 0);
-    const totalStake = filtradas.reduce((acc, op) => acc + op.stake, 0);
-    const mediaStake = filtradas.length > 0 ? (totalStake / filtradas.length) : 0;
-    document.getElementById('media-responsabilidade').innerText = `R$ ${mediaStake.toFixed(2)}`;
+    // Stake Média Baseada na Responsabilidade (Risco)
+    const comResp = filtradas.filter(op => op.resp > 0);
+    const totalResp = comResp.reduce((acc, op) => acc + op.resp, 0);
+    const mediaResp = comResp.length > 0 ? (totalResp / comResp.length) : 0;
+    document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
 
-    const pctLucro = mediaStake > 0 ? (lucroBruto / mediaStake) * 100 : 0;
+    // % de Lucro (Baseado na Média da Responsabilidade)
+    const pctLucro = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
     const elPctLucro = document.getElementById('pct-lucro');
     if (elPctLucro) {
         elPctLucro.innerText = `${pctLucro.toFixed(2)}%`;
         elPctLucro.style.color = pctLucro >= 0 ? 'green' : 'red';
     }
 
-    const roiStake = mediaStake > 0 ? (lucroBruto / mediaStake) * 100 : 0;
-    const unidades = mediaStake > 0 ? (lucroBruto / mediaStake).toFixed(2) : 0;
+    // ROI e Unidades (Baseado na Média da Responsabilidade)
+    const roiStake = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
+    const unidades = mediaResp > 0 ? (lucroBruto / mediaResp).toFixed(2) : 0;
     const elRoiStake = document.getElementById('roi-stake');
     if (elRoiStake) {
         const roiDisplay = Math.min(Math.abs(roiStake), 9999); 
@@ -388,7 +386,6 @@ window.ordenarTabela = (coluna) => {
     aplicarFiltros(); 
 };
 
-// ----- LÓGICA DAS 3 ABAS -----
 function switchTab(activeBtnId, activeContentId) {
     ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-configuracoes'].forEach(id => {
         const el = document.getElementById(id);
