@@ -93,25 +93,28 @@
                         <button id="btn-salvar-banca" style="padding: 7px 12px; background: #166534; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; transition: 0.2s;">Salvar</button>
                     </div>
                 </div>
+                
                 <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3>Lucro Líquido</h3>
-                    <p id="lucro">R$ 0,00</p>
+                    <h3>Lucro Bruto</h3>
+                    <p id="lucro-bruto">R$ 0,00</p>
                 </div>
+
+                <div class="card" style="flex: 1; min-width: 140px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                    <h3 title="Calculado como: Banca Total Salva - R$ 750,00">Lucro Líquido Real</h3>
+                    <p id="lucro-liquido">R$ 0,00</p>
+                </div>
+
                 <div class="card" style="flex: 1; min-width: 140px;">
                     <h3>Stake Média</h3>
                     <p id="media-responsabilidade" style="color: #d97706;">R$ 0,00</p>
                 </div>
                 <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3 title="Representa a porcentagem de lucro em relação à Stake Média">% de Lucro s/ Stake</h3>
+                    <h3 title="Representa a porcentagem de lucro bruto em relação à Stake Média">% de Lucro s/ Stake</h3>
                     <p id="pct-lucro">0,00%</p>
                 </div>
                 <div class="card" style="flex: 1; min-width: 180px;">
-                    <h3 title="Retorno sobre a Stake Média (Unidades Ganhas/Perdidas)">ROI s/ Stake Média</h3>
+                    <h3 title="Retorno sobre a Stake Média (Unidades Ganhas/Perdidas baseadas no Lucro Bruto)">ROI s/ Stake Média</h3>
                     <p id="roi-stake">0,00%</p>
-                </div>
-                <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3>Custos Transmissões</h3>
-                    <p id="custo-fixo">R$ 150,00 <span style="font-size: 11px; color: #888; display: block; margin-top: 5px;">Vence dia 16</span></p>
                 </div>
             </div>
 
