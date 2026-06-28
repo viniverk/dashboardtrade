@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-pt">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,9 +30,9 @@
             </div>
             
             <div class="abas" style="display: flex; gap: 10px;">
-                <button id="btn-aba-dashboard" style="padding: 10px 20px; cursor: pointer; background: #1e40af; color: white; border: none; border-radius: 5px; font-weight: bold;">📊 Visão Geral</button>
-                <button id="btn-aba-ranking" style="padding: 10px 20px; cursor: pointer; background: #e5e7eb; color: #374151; border: none; border-radius: 5px; font-weight: bold;">🏆 Ranking</button>
-                <button id="btn-aba-config" style="padding: 10px 20px; cursor: pointer; background: #e5e7eb; color: #374151; border: none; border-radius: 5px; font-weight: bold;">⚙️ Configurações</button>
+                <button id="btn-aba-dashboard" style="padding: 10px 20px; cursor: pointer; background: #1e40af; color: white; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">📊 Visão Geral</button>
+                <button id="btn-aba-ranking" style="padding: 10px 20px; cursor: pointer; background: #e5e7eb; color: #374151; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">🏆 Ranking</button>
+                <button id="btn-aba-config" style="padding: 10px 20px; cursor: pointer; background: #e5e7eb; color: #374151; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">⚙️ Configurações</button>
             </div>
         </header>
         
@@ -47,24 +47,37 @@
             </div>
             <div style="flex: 1; min-width: 120px;">
                 <label style="font-weight: bold; font-size: 13px; color: #555;">Ano:</label>
-                <select id="filtro-ano" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;"><option value="TODOS">Todos</option></select>
+                <select id="filtro-ano" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
+                    <option value="TODOS">Todos</option>
+                </select>
             </div>
             <div style="flex: 1; min-width: 120px;">
                 <label style="font-weight: bold; font-size: 13px; color: #555;">Mês:</label>
                 <select id="filtro-mes" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="TODOS">Todos</option><option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option>
-                    <option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option><option value="6">Julho</option>
-                    <option value="7">Agosto</option><option value="8">Setembro</option><option value="9">Outubro</option>
-                    <option value="10">Novembro</option><option value="11">Dezembro</option>
+                    <option value="TODOS">Todos</option>
+                    <option value="0">Janeiro</option>
+                    <option value="1">Fevereiro</option>
+                    <option value="2">Março</option>
+                    <option value="3">Abril</option>
+                    <option value="4">Maio</option>
+                    <option value="5">Junho</option>
+                    <option value="6">Julho</option>
+                    <option value="7">Agosto</option>
+                    <option value="8">Setembro</option>
+                    <option value="9">Outubro</option>
+                    <option value="10">Novembro</option>
+                    <option value="11">Dezembro</option>
                 </select>
             </div>
             <div style="flex: 1; min-width: 140px;">
                 <label style="font-weight: bold; font-size: 13px; color: #555;">Data Específica:</label>
-                <select id="filtro-data" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;"><option value="TODAS">Todas as Datas</option></select>
+                <select id="filtro-data" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
+                    <option value="TODAS">Todas as Datas</option>
+                </select>
             </div>
             <div style="flex: 1; min-width: 140px;">
                 <label style="font-weight: bold; font-size: 13px; color: #555;">Gráfico (Visual):</label>
-                <select id="tipo-grafico" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
+                <select id="tipo-grafico" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; background-color: #f0f8ff;">
                     <option value="bar">Barras</option>
                     <option value="line">Linhas</option>
                 </select>
@@ -73,27 +86,51 @@
 
         <div id="conteudo-dashboard">
             <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px;">
-                <div class="card" style="flex: 1; min-width: 140px;"><h3>Lucro Bruto</h3><p id="lucro-bruto">R$ 0,00</p></div>
-                <div class="card" style="flex: 1; min-width: 140px; background-color: #f8fafc; border: 1px solid #e2e8f0;"><h3>Lucro Líquido Real</h3><p id="lucro-liquido">R$ 0,00</p></div>
-                <div class="card" style="flex: 1; min-width: 140px;"><h3>Comissões Betfair</h3><p id="comissoes-valor" style="color: #ef4444;">R$ 0,00</p><span id="comissoes-pct" style="font-size: 11px; color: #888;">0.00% do Bruto</span></div>
-                <div class="card" style="flex: 1; min-width: 140px;"><h3>Stake Média</h3><p id="media-responsabilidade" style="color: #d97706;">R$ 0,00</p></div>
-                <div class="card" style="flex: 1; min-width: 140px;"><h3>Desempenho (G/R)</h3><p id="relacao-green-red" style="font-size: 14px; font-weight: bold;">G: 0 | R: 0</p><div style="display: flex; gap: 5px; font-size: 11px;"><span id="media-green" style="color: green;">G: R$ 0</span><span id="media-red" style="color: red;">R: R$ 0</span></div></div>
+                
+                <div class="card" style="flex: 1; min-width: 140px;">
+                    <h3>Lucro Bruto</h3>
+                    <p id="lucro-bruto">R$ 0,00</p>
+                </div>
+
+                <div class="card" style="flex: 1; min-width: 140px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                    <h3 title="Calculado como: Banca Total Salva - Banca Inicial Salva">Lucro Líquido Real</h3>
+                    <p id="lucro-liquido">R$ 0,00</p>
+                </div>
+
+                <div class="card" style="flex: 1; min-width: 140px;">
+                    <h3 title="Calculado como: Lucro Bruto - Lucro Líquido Real">Comissões Betfair</h3>
+                    <p id="comissoes-valor" style="color: #ef4444;">R$ 0,00</p>
+                    <span id="comissoes-pct" style="font-size: 11px; color: #888; display: block; margin-top: 5px;">0.00% do Bruto</span>
+                </div>
+
+                <div class="card" style="flex: 1; min-width: 140px;">
+                    <h3>Stake Média</h3>
+                    <p id="media-responsabilidade" style="color: #d97706;">R$ 0,00</p>
+                </div>
+                <div class="card" style="flex: 1; min-width: 140px;">
+                    <h3 title="Representa a porcentagem de lucro bruto em relação à Stake Média">% de Lucro s/ Stake</h3>
+                    <p id="pct-lucro">0,00%</p>
+                </div>
+                <div class="card" style="flex: 1; min-width: 180px;">
+                    <h3 title="Retorno sobre a Stake Média (Unidades Ganhas/Perdidas baseadas no Lucro Bruto)">ROI s/ Stake Média</h3>
+                    <p id="roi-stake">0,00%</p>
+                </div>
             </div>
 
-            <div class="chart-container" style="margin-top: 20px; background: white; padding: 15px; border-radius: 10px; height: 400px; position: relative;">
-                <canvas id="meuGrafico"></canvas>
+            <div class="chart-container" style="margin-top: 20px; background: white; padding: 15px; border-radius: 10px; height: 400px; max-height: 400px; position: relative;">
+                <canvas id="meuGrafico" style="height: 100%; width: 100%;"></canvas>
             </div>
 
             <div class="table-container" style="margin-top: 20px; background: white; padding: 20px; border-radius: 10px;">
-                <h3>Listagem de Operações</h3>
-                <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <h3>Listagem de Operações Filtradas</h3>
+                <table id="tabela-operacoes" style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
                     <thead>
                         <tr style="border-bottom: 2px solid #ddd; background-color: #f8f9fa; cursor: pointer;">
-                            <th onclick="ordenarTabela('mercado')" style="padding: 10px;">Mercado ↕</th>
-                            <th onclick="ordenarTabela('data')" style="padding: 10px;">Data/Hora ↕</th>
-                            <th onclick="ordenarTabela('odd')" style="padding: 10px;">ODD ↕</th>
-                            <th onclick="ordenarTabela('resp')" style="padding: 10px;">Responsabilidade ↕</th>
-                            <th onclick="ordenarTabela('pnl')" style="padding: 10px;">Lucro/Perda ↕</th>
+                            <th onclick="ordenarTabela('mercado')" style="padding: 10px;" title="Clique para ordenar">Mercado ↕</th>
+                            <th onclick="ordenarTabela('data')" style="padding: 10px;" title="Clique para ordenar">Data/Hora ↕</th>
+                            <th onclick="ordenarTabela('odd')" style="padding: 10px;" title="Clique para ordenar">ODD ↕</th>
+                            <th onclick="ordenarTabela('resp')" style="padding: 10px;" title="Clique para ordenar">Responsabilidade ↕</th>
+                            <th onclick="ordenarTabela('pnl')" style="padding: 10px;" title="Clique para ordenar">Lucro/Perda (R$) ↕</th>
                         </tr>
                     </thead>
                     <tbody id="corpo-tabela"></tbody>
@@ -103,26 +140,56 @@
 
         <div id="conteudo-ranking" style="display:none; margin-top: 20px;">
             <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px;">
-                <div class="card" style="flex: 1; min-width: 200px; border-left: 5px solid #10b981;"><h3>✅ Maior Green</h3><p id="rank-green">R$ 0,00</p><span id="rank-green-desc" style="font-size: 11px;">-</span></div>
-                <div class="card" style="flex: 1; min-width: 200px; border-left: 5px solid #ef4444;"><h3>❌ Maior Red</h3><p id="rank-red">R$ 0,00</p><span id="rank-red-desc" style="font-size: 11px;">-</span></div>
-                <div class="card" style="flex: 1; min-width: 200px; border-left: 5px solid #f59e0b;"><h3>⚠️ Maior Resp.</h3><p id="rank-resp">R$ 0,00</p><span id="rank-resp-desc" style="font-size: 11px;">-</span></div>
-                <div class="card" style="flex: 1; min-width: 200px; border-left: 5px solid #3b82f6;"><h3>🎯 Maior Odd</h3><p id="rank-odd">0.00</p><span id="rank-odd-desc" style="font-size: 11px;">-</span></div>
-                <div class="card" style="flex: 1; min-width: 200px; border-left: 5px solid #8b5cf6;"><h3>💰 Maior Stake</h3><p id="rank-stake">R$ 0,00</p><span id="rank-stake-desc" style="font-size: 11px;">-</span></div>
+                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #10b981;">
+                    <h3 style="color: #10b981;">✅ Maior Green</h3>
+                    <p id="rank-green" style="color: #10b981;">R$ 0,00</p>
+                    <span id="rank-green-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
+                </div>
+                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #ef4444;">
+                    <h3 style="color: #ef4444;">❌ Maior Red</h3>
+                    <p id="rank-red" style="color: #ef4444;">R$ 0,00</p>
+                    <span id="rank-red-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
+                </div>
+                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #f59e0b;">
+                    <h3 style="color: #f59e0b;">⚠️ Maior Responsabilidade</h3>
+                    <p id="rank-resp" style="color: #f59e0b;">R$ 0,00</p>
+                    <span id="rank-resp-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
+                </div>
+                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #3b82f6;">
+                    <h3 style="color: #3b82f6;">🎯 Maior Odd</h3>
+                    <p id="rank-odd" style="color: #3b82f6;">0.00</p>
+                    <span id="rank-odd-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
+                </div>
+                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #8b5cf6;">
+                    <h3 style="color: #8b5cf6;">💰 Maior Stake</h3>
+                    <p id="rank-stake" style="color: #8b5cf6;">R$ 0,00</p>
+                    <span id="rank-stake-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
+                </div>
             </div>
         </div>
 
         <div id="conteudo-configuracoes" style="display:none; margin-top: 20px;">
             <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px;">
                 <div class="card" style="flex: 1; min-width: 250px; background-color: #f0fdf4; border: 1px solid #bbf7d0;">
-                    <h3>Banca Atual</h3>
-                    <input type="number" id="input-banca-usuario" value="1000.00" style="width: 100%; padding: 8px; margin-top: 5px;">
+                    <h3>Banca Total Atual (Nuvem)</h3>
+                    <div style="display: flex; align-items: center; margin-top: 8px; gap: 5px;">
+                        <span style="font-size: 14px; font-weight: bold; color: #166534;">R$</span>
+                        <input type="number" id="input-banca-usuario" value="1000.00" step="50" style="width: 100%; padding: 6px; border: 1px solid #abc; border-radius: 4px; font-size: 15px; font-weight: bold; color: #166534;">
+                    </div>
                 </div>
                 <div class="card" style="flex: 1; min-width: 250px; background-color: #eff6ff; border: 1px solid #bfdbfe;">
-                    <h3>Banca Inicial</h3>
-                    <input type="number" id="input-banca-inicial" value="750.00" style="width: 100%; padding: 8px; margin-top: 5px;">
+                    <h3>Banca Inicial (Nuvem)</h3>
+                    <p style="font-size: 11px; color: #666; margin: 2px 0 8px 0;">Usada para calcular o Lucro Líquido Real.</p>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span style="font-size: 14px; font-weight: bold; color: #1e3a8a;">R$</span>
+                        <input type="number" id="input-banca-inicial" value="750.00" step="50" style="width: 100%; padding: 6px; border: 1px solid #abc; border-radius: 4px; font-size: 15px; font-weight: bold; color: #1e3a8a;">
+                    </div>
                 </div>
             </div>
-            <button id="btn-salvar-config" style="margin-top: 20px; padding: 10px 20px; background: #1e40af; color: white; border: none; cursor: pointer;">💾 Salvar Configurações</button>
+            
+            <div style="margin-top: 20px;">
+                <button id="btn-salvar-config" style="padding: 12px 25px; background: #1e40af; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s;">💾 Salvar Configurações</button>
+            </div>
         </div>
 
     </div>
