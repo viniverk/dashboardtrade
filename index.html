@@ -32,6 +32,7 @@
             <div class="abas" style="display: flex; gap: 10px;">
                 <button id="btn-aba-dashboard" style="padding: 10px 20px; cursor: pointer; background: #1e40af; color: white; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">📊 Visão Geral</button>
                 <button id="btn-aba-ranking" style="padding: 10px 20px; cursor: pointer; background: #e5e7eb; color: #374151; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">🏆 Ranking</button>
+                <button id="btn-aba-config" style="padding: 10px 20px; cursor: pointer; background: #e5e7eb; color: #374151; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">⚙️ Configurações</button>
             </div>
         </header>
         
@@ -85,14 +86,6 @@
 
         <div id="conteudo-dashboard">
             <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px;">
-                <div class="card" style="flex: 1; min-width: 180px; background-color: #f0fdf4; border: 1px solid #bbf7d0;">
-                    <h3>Definir Banca (Nuvem)</h3>
-                    <div style="display: flex; align-items: center; margin-top: 8px; gap: 5px;">
-                        <span style="font-size: 14px; font-weight: bold; color: #166534;">R$</span>
-                        <input type="number" id="input-banca-usuario" value="1000.00" step="50" style="width: 100%; padding: 6px; border: 1px solid #abc; border-radius: 4px; font-size: 15px; font-weight: bold; color: #166534;">
-                        <button id="btn-salvar-banca" style="padding: 7px 12px; background: #166534; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; transition: 0.2s;">Salvar</button>
-                    </div>
-                </div>
                 
                 <div class="card" style="flex: 1; min-width: 140px;">
                     <h3>Lucro Bruto</h3>
@@ -100,7 +93,7 @@
                 </div>
 
                 <div class="card" style="flex: 1; min-width: 140px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
-                    <h3 title="Calculado como: Banca Total Salva - R$ 750,00">Lucro Líquido Real</h3>
+                    <h3 title="Calculado como: Banca Total Salva - Banca Inicial Salva">Lucro Líquido Real</h3>
                     <p id="lucro-liquido">R$ 0,00</p>
                 </div>
 
@@ -124,7 +117,6 @@
 
             <div class="table-container" style="margin-top: 20px; background: white; padding: 20px; border-radius: 10px;">
                 <h3>Listagem de Operações Filtradas</h3>
-                
                 <table id="tabela-operacoes" style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
                     <thead>
                         <tr style="border-bottom: 2px solid #ddd; background-color: #f8f9fa; cursor: pointer;">
@@ -167,6 +159,30 @@
                     <p id="rank-stake" style="color: #8b5cf6;">R$ 0,00</p>
                     <span id="rank-stake-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
                 </div>
+            </div>
+        </div>
+
+        <div id="conteudo-configuracoes" style="display:none; margin-top: 20px;">
+            <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px;">
+                <div class="card" style="flex: 1; min-width: 250px; background-color: #f0fdf4; border: 1px solid #bbf7d0;">
+                    <h3>Banca Total Atual (Nuvem)</h3>
+                    <div style="display: flex; align-items: center; margin-top: 8px; gap: 5px;">
+                        <span style="font-size: 14px; font-weight: bold; color: #166534;">R$</span>
+                        <input type="number" id="input-banca-usuario" value="1000.00" step="50" style="width: 100%; padding: 6px; border: 1px solid #abc; border-radius: 4px; font-size: 15px; font-weight: bold; color: #166534;">
+                    </div>
+                </div>
+                <div class="card" style="flex: 1; min-width: 250px; background-color: #eff6ff; border: 1px solid #bfdbfe;">
+                    <h3>Banca Inicial (Nuvem)</h3>
+                    <p style="font-size: 11px; color: #666; margin: 2px 0 8px 0;">Usada para calcular o Lucro Líquido Real.</p>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span style="font-size: 14px; font-weight: bold; color: #1e3a8a;">R$</span>
+                        <input type="number" id="input-banca-inicial" value="750.00" step="50" style="width: 100%; padding: 6px; border: 1px solid #abc; border-radius: 4px; font-size: 15px; font-weight: bold; color: #1e3a8a;">
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button id="btn-salvar-config" style="padding: 12px 25px; background: #1e40af; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s;">💾 Salvar Configurações</button>
             </div>
         </div>
 
