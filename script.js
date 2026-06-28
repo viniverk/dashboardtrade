@@ -20,7 +20,9 @@ let todasOperacoes = [];
 let chart;
 let sortDirection = 1;
 let usuarioAtual = null;
-let bancaNuvem = 1000.00; // Valor de banca por padrão na memória
+
+let bancaNuvem = 1000.00; 
+let bancaInicialNuvem = 750.00; // Nova variável
 
 Chart.register(ChartDataLabels);
 
@@ -41,7 +43,7 @@ const monthOrder = {
 
 // --- CÁLCULO ISOLADO DO LUCRO LÍQUIDO REAL ---
 function atualizarLucroLiquidoReal() {
-    const lucroLiquidoReal = bancaNuvem - 750;
+    const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
     const elLucroLiq = document.getElementById('lucro-liquido');
     if (elLucroLiq) {
         elLucroLiq.innerText = `R$ ${lucroLiquidoReal.toFixed(2)}`;
@@ -58,39 +60,50 @@ async function puxarBancaDoFirebase(user) {
         
         if (docSnap.exists()) {
             bancaNuvem = parseFloat(docSnap.data().valorBanca || 1000);
+            bancaInicialNuvem = parseFloat(docSnap.data().valorBancaInicial || 750);
         } else {
             bancaNuvem = 1000;
+            bancaInicialNuvem = 750;
         }
+        
+        // Atualiza os inputs na aba Configurações
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
+        document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
+        
+        // Atualiza o topo do dashboard
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        
         atualizarLucroLiquidoReal();
     } catch (e) {
         console.error("Erro ao ler banca:", e);
     }
 }
 
-async function salvarBancaNoFirebase() {
+async function salvarConfiguracoesNoFirebase() {
     if (!usuarioAtual) {
-        alert("Você precisa estar logado para salvar a banca!");
+        alert("Você precisa estar logado para salvar as configurações!");
         return;
     }
-    const campoInput = document.getElementById('input-banca-usuario');
-    bancaNuvem = parseFloat(campoInput.value) || 0;
+    
+    bancaNuvem = parseFloat(document.getElementById('input-banca-usuario').value) || 0;
+    bancaInicialNuvem = parseFloat(document.getElementById('input-banca-inicial').value) || 0;
     
     try {
         const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
-        await setDoc(docRef, { valorBanca: bancaNuvem }, { merge: true });
+        await setDoc(docRef, { 
+            valorBanca: bancaNuvem,
+            valorBancaInicial: bancaInicialNuvem 
+        }, { merge: true });
         
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         atualizarLucroLiquidoReal();
-        alert("Banca salva com sucesso na sua conta Google!");
+        alert("Configurações salvas com sucesso!");
     } catch (e) {
-        console.error("Erro ao salvar banca:", e);
+        console.error("Erro ao salvar configurações:", e);
         alert("Falha ao salvar dados no Firebase.");
     }
 }
 
-// Inicialização padrão antes do login puxar do servidor
 atualizarLucroLiquidoReal();
 
 async function carregarDadosDoGitHub() {
@@ -194,18 +207,15 @@ function aplicarFiltros() {
         return condEstrat && condAno && condMes && condData;
     });
 
-    // 1. Lucro Bruto (Somatório das operações filtradas)
     const lucroBruto = filtradas.reduce((acc, op) => acc + op.pnl, 0);
     document.getElementById('lucro-bruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
     document.getElementById('lucro-bruto').style.color = lucroBruto >= 0 ? 'green' : 'red';
 
-    // 2. Stake Média
     const comStake = filtradas.filter(op => op.stake > 0);
     const totalStake = filtradas.reduce((acc, op) => acc + op.stake, 0);
     const mediaStake = filtradas.length > 0 ? (totalStake / filtradas.length) : 0;
     document.getElementById('media-responsabilidade').innerText = `R$ ${mediaStake.toFixed(2)}`;
 
-    // 3. % de Lucro (Utilizando o Lucro Bruto gerado nas operações filtradas)
     const pctLucro = mediaStake > 0 ? (lucroBruto / mediaStake) * 100 : 0;
     const elPctLucro = document.getElementById('pct-lucro');
     if (elPctLucro) {
@@ -213,7 +223,6 @@ function aplicarFiltros() {
         elPctLucro.style.color = pctLucro >= 0 ? 'green' : 'red';
     }
 
-    // 4. ROI sobre Stake Média
     const roiStake = mediaStake > 0 ? (lucroBruto / mediaStake) * 100 : 0;
     const unidades = mediaStake > 0 ? (lucroBruto / mediaStake).toFixed(2) : 0;
     const elRoiStake = document.getElementById('roi-stake');
@@ -379,37 +388,47 @@ window.ordenarTabela = (coluna) => {
     aplicarFiltros(); 
 };
 
-const btnDash = document.getElementById('btn-aba-dashboard');
-const btnRank = document.getElementById('btn-aba-ranking');
-const conteDash = document.getElementById('conteudo-dashboard');
-const conteRank = document.getElementById('conteudo-ranking');
+// ----- LÓGICA DAS 3 ABAS -----
+function switchTab(activeBtnId, activeContentId) {
+    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-configuracoes'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = 'none';
+    });
+    
+    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-config'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) {
+            el.style.background = '#e5e7eb';
+            el.style.color = '#374151';
+        }
+    });
 
-if(btnDash && btnRank) {
-    btnDash.addEventListener('click', () => {
-        conteDash.style.display = 'block';
-        conteRank.style.display = 'none';
-        btnDash.style.background = '#1e40af';
-        btnDash.style.color = 'white';
-        btnRank.style.background = '#e5e7eb';
-        btnRank.style.color = '#374151';
-    });
-    btnRank.addEventListener('click', () => {
-        conteDash.style.display = 'none';
-        conteRank.style.display = 'block';
-        btnRank.style.background = '#1e40af';
-        btnRank.style.color = 'white';
-        btnDash.style.background = '#e5e7eb';
-        btnDash.style.color = '#374151';
-    });
+    const activeContent = document.getElementById(activeContentId);
+    if(activeContent) activeContent.style.display = 'block';
+
+    const activeBtn = document.getElementById(activeBtnId);
+    if(activeBtn) {
+        activeBtn.style.background = '#1e40af';
+        activeBtn.style.color = 'white';
+    }
 }
+
+const btnDash = document.getElementById('btn-aba-dashboard');
+if(btnDash) btnDash.addEventListener('click', () => switchTab('btn-aba-dashboard', 'conteudo-dashboard'));
+
+const btnRank = document.getElementById('btn-aba-ranking');
+if(btnRank) btnRank.addEventListener('click', () => switchTab('btn-aba-ranking', 'conteudo-ranking'));
+
+const btnConfig = document.getElementById('btn-aba-config');
+if(btnConfig) btnConfig.addEventListener('click', () => switchTab('btn-aba-config', 'conteudo-configuracoes'));
 
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.addEventListener('change', aplicarFiltros);
 });
 
-const btnSalvarBanca = document.getElementById('btn-salvar-banca');
-if(btnSalvarBanca) btnSalvarBanca.addEventListener('click', salvarBancaNoFirebase);
+const btnSalvarConfig = document.getElementById('btn-salvar-config');
+if(btnSalvarConfig) btnSalvarConfig.addEventListener('click', salvarConfiguracoesNoFirebase);
 
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then((result) => {
