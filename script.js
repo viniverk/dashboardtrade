@@ -20,6 +20,7 @@ let todasOperacoes = [];
 let chart;
 let sortDirection = 1;
 let usuarioAtual = null;
+let bancaNuvem = 1000.00; // Valor de banca por padrão na memória
 
 Chart.register(ChartDataLabels);
 
@@ -38,6 +39,16 @@ const monthOrder = {
     "nov": 10, "dec": 11, "dez": 11
 };
 
+// --- CÁLCULO ISOLADO DO LUCRO LÍQUIDO REAL ---
+function atualizarLucroLiquidoReal() {
+    const lucroLiquidoReal = bancaNuvem - 750;
+    const elLucroLiq = document.getElementById('lucro-liquido');
+    if (elLucroLiq) {
+        elLucroLiq.innerText = `R$ ${lucroLiquidoReal.toFixed(2)}`;
+        elLucroLiq.style.color = lucroLiquidoReal >= 0 ? 'green' : 'red';
+    }
+}
+
 // --- FUNÇÕES DA BANCA NO FIREBASE ---
 async function puxarBancaDoFirebase(user) {
     if (!user) return;
@@ -46,13 +57,13 @@ async function puxarBancaDoFirebase(user) {
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
-            const valorBanca = docSnap.data().valorBanca || 1000;
-            document.getElementById('input-banca-usuario').value = parseFloat(valorBanca).toFixed(2);
-            document.getElementById('texto-banca-superior').innerText = `R$ ${parseFloat(valorBanca).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            bancaNuvem = parseFloat(docSnap.data().valorBanca || 1000);
         } else {
-            // Se o usuário não tiver banca criada ainda, gera com valor padrão de 1000
-            document.getElementById('texto-banca-superior').innerText = "R$ 1.000,00";
+            bancaNuvem = 1000;
         }
+        document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
+        document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        atualizarLucroLiquidoReal();
     } catch (e) {
         console.error("Erro ao ler banca:", e);
     }
@@ -64,20 +75,23 @@ async function salvarBancaNoFirebase() {
         return;
     }
     const campoInput = document.getElementById('input-banca-usuario');
-    const novoValor = parseFloat(campoInput.value) || 0;
+    bancaNuvem = parseFloat(campoInput.value) || 0;
     
     try {
         const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
-        await setDoc(docRef, { valorBanca: novoValor }, { merge: true });
+        await setDoc(docRef, { valorBanca: bancaNuvem }, { merge: true });
         
-        // Atualiza o indicador textual na parte superior da tela
-        document.getElementById('texto-banca-superior').innerText = `R$ ${novoValor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        atualizarLucroLiquidoReal();
         alert("Banca salva com sucesso na sua conta Google!");
     } catch (e) {
         console.error("Erro ao salvar banca:", e);
         alert("Falha ao salvar dados no Firebase.");
     }
 }
+
+// Inicialização padrão antes do login puxar do servidor
+atualizarLucroLiquidoReal();
 
 async function carregarDadosDoGitHub() {
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
@@ -180,29 +194,33 @@ function aplicarFiltros() {
         return condEstrat && condAno && condMes && condData;
     });
 
-    const lucroLiquido = filtradas.reduce((acc, op) => acc + op.pnl, 0);
-    document.getElementById('lucro').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
-    document.getElementById('lucro').style.color = lucroLiquido >= 0 ? 'green' : 'red';
+    // 1. Lucro Bruto (Somatório das operações filtradas)
+    const lucroBruto = filtradas.reduce((acc, op) => acc + op.pnl, 0);
+    document.getElementById('lucro-bruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
+    document.getElementById('lucro-bruto').style.color = lucroBruto >= 0 ? 'green' : 'red';
 
+    // 2. Stake Média
     const comStake = filtradas.filter(op => op.stake > 0);
     const totalStake = filtradas.reduce((acc, op) => acc + op.stake, 0);
     const mediaStake = filtradas.length > 0 ? (totalStake / filtradas.length) : 0;
     document.getElementById('media-responsabilidade').innerText = `R$ ${mediaStake.toFixed(2)}`;
 
-    const pctLucro = mediaStake > 0 ? (lucroLiquido / mediaStake) * 100 : 0;
+    // 3. % de Lucro (Utilizando o Lucro Bruto gerado nas operações filtradas)
+    const pctLucro = mediaStake > 0 ? (lucroBruto / mediaStake) * 100 : 0;
     const elPctLucro = document.getElementById('pct-lucro');
     if (elPctLucro) {
         elPctLucro.innerText = `${pctLucro.toFixed(2)}%`;
         elPctLucro.style.color = pctLucro >= 0 ? 'green' : 'red';
     }
 
-    const roiStake = mediaStake > 0 ? (lucroLiquido / mediaStake) * 100 : 0;
-    const unidades = mediaStake > 0 ? (lucroLiquido / mediaStake).toFixed(2) : 0;
+    // 4. ROI sobre Stake Média
+    const roiStake = mediaStake > 0 ? (lucroBruto / mediaStake) * 100 : 0;
+    const unidades = mediaStake > 0 ? (lucroBruto / mediaStake).toFixed(2) : 0;
     const elRoiStake = document.getElementById('roi-stake');
     if (elRoiStake) {
         const roiDisplay = Math.min(Math.abs(roiStake), 9999); 
         const sinal = roiStake > 0 ? '+' : (roiStake < 0 ? '-' : '');
-        elRoiStake.innerText = `${roiStake.toFixed(2)}% (${sinal}${unidades} und)`;
+        elRoiStake.innerText = `${sinal}${roiDisplay.toFixed(2)}% (${sinal}${Math.abs(unidades)} und)`;
         elRoiStake.style.color = roiStake >= 0 ? 'green' : 'red';
     }
 
@@ -390,7 +408,6 @@ if(btnDash && btnRank) {
     if(el) el.addEventListener('change', aplicarFiltros);
 });
 
-// Listener para o botão de salvar banca
 const btnSalvarBanca = document.getElementById('btn-salvar-banca');
 if(btnSalvarBanca) btnSalvarBanca.addEventListener('click', salvarBancaNoFirebase);
 
@@ -404,7 +421,6 @@ document.getElementById('btn-login').addEventListener('click', () => {
     }).catch(error => console.error("Erro no login:", error));
 });
 
-// Mantém o estado do usuário ativo caso recarregue a página sem deslogar
 onAuthStateChanged(auth, (user) => {
     if (user) {
         usuarioAtual = user;
