@@ -69,6 +69,7 @@ async function puxarBancaDoFirebase(user) {
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         
         atualizarLucroLiquidoReal();
+        aplicarFiltros(); // Força a atualização do KPI de Comissões após puxar a banca
     } catch (e) {
         console.error("Erro ao ler banca:", e);
     }
@@ -92,6 +93,7 @@ async function salvarConfiguracoesNoFirebase() {
         
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         atualizarLucroLiquidoReal();
+        aplicarFiltros(); // Atualiza a comissão na hora
         alert("Configurações salvas com sucesso!");
     } catch (e) {
         console.error("Erro ao salvar configurações:", e);
@@ -206,13 +208,27 @@ function aplicarFiltros() {
     document.getElementById('lucro-bruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
     document.getElementById('lucro-bruto').style.color = lucroBruto >= 0 ? 'green' : 'red';
 
-    // Stake Média Baseada na Responsabilidade (Risco)
+    // CÁLCULO DE COMISSÕES BETFAIR
+    const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
+    const comissoes = lucroBruto - lucroLiquidoReal;
+    let pctComissoes = 0;
+    if (lucroBruto > 0) {
+        pctComissoes = (comissoes / lucroBruto) * 100;
+    }
+    const elComissoesValor = document.getElementById('comissoes-valor');
+    const elComissoesPct = document.getElementById('comissoes-pct');
+    if (elComissoesValor) {
+        elComissoesValor.innerText = `R$ ${comissoes.toFixed(2)}`;
+    }
+    if (elComissoesPct) {
+        elComissoesPct.innerText = `${pctComissoes.toFixed(2)}% em relação ao Bruto`;
+    }
+
     const comResp = filtradas.filter(op => op.resp > 0);
     const totalResp = comResp.reduce((acc, op) => acc + op.resp, 0);
     const mediaResp = comResp.length > 0 ? (totalResp / comResp.length) : 0;
     document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
 
-    // % de Lucro (Baseado na Média da Responsabilidade)
     const pctLucro = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
     const elPctLucro = document.getElementById('pct-lucro');
     if (elPctLucro) {
@@ -220,7 +236,6 @@ function aplicarFiltros() {
         elPctLucro.style.color = pctLucro >= 0 ? 'green' : 'red';
     }
 
-    // ROI e Unidades (Baseado na Média da Responsabilidade)
     const roiStake = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
     const unidades = mediaResp > 0 ? (lucroBruto / mediaResp).toFixed(2) : 0;
     const elRoiStake = document.getElementById('roi-stake');
