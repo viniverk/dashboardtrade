@@ -69,7 +69,7 @@ async function puxarBancaDoFirebase(user) {
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         
         atualizarLucroLiquidoReal();
-        aplicarFiltros(); 
+        aplicarFiltros(); // Força a atualização do KPI de Comissões após puxar a banca
     } catch (e) {
         console.error("Erro ao ler banca:", e);
     }
@@ -93,7 +93,7 @@ async function salvarConfiguracoesNoFirebase() {
         
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         atualizarLucroLiquidoReal();
-        aplicarFiltros(); 
+        aplicarFiltros(); // Atualiza a comissão na hora
         alert("Configurações salvas com sucesso!");
     } catch (e) {
         console.error("Erro ao salvar configurações:", e);
@@ -208,6 +208,7 @@ function aplicarFiltros() {
     document.getElementById('lucro-bruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
     document.getElementById('lucro-bruto').style.color = lucroBruto >= 0 ? 'green' : 'red';
 
+    // CÁLCULO DE COMISSÕES BETFAIR
     const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
     const comissoes = lucroBruto - lucroLiquidoReal;
     let pctComissoes = 0;
@@ -237,6 +238,7 @@ function aplicarFiltros() {
 
     const roiStake = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
     const unidades = mediaResp > 0 ? (lucroBruto / mediaResp).toFixed(2) : 0;
+																																	 
     const elRoiStake = document.getElementById('roi-stake');
     if (elRoiStake) {
         const roiDisplay = Math.min(Math.abs(roiStake), 9999); 
@@ -244,13 +246,7 @@ function aplicarFiltros() {
         elRoiStake.innerText = `${sinal}${roiDisplay.toFixed(2)}% (${sinal}${Math.abs(unidades)} und)`;
         elRoiStake.style.color = roiStake >= 0 ? 'green' : 'red';
     }
-
-    // CÁLCULO GREEN/RED CORRETO
-    const greens = filtradas.filter(op => op.pnl > 0);
-    const reds = filtradas.filter(op => op.pnl < 0);
-    document.getElementById('relacao-green-red').innerHTML = `<span style="color: green;">G: ${greens.length}</span> | <span style="color: red;">R: ${reds.length}</span>`;
-    document.getElementById('media-green').innerText = `G: R$ ${(greens.length > 0 ? greens.reduce((a,b)=>a+b.pnl,0)/greens.length : 0).toFixed(2)}`;
-    document.getElementById('media-red').innerText = `R: R$ ${(reds.length > 0 ? reds.reduce((a,b)=>a+b.pnl,0)/reds.length : 0).toFixed(2)}`;
+																																			 
 
     atualizarTabela(filtradas);
     renderizarGrafico(filtradas, fGrafico);
