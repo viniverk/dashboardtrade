@@ -233,11 +233,16 @@ function aplicarFiltros() {
     setPnlClass(elLucroBruto, lucroBruto);
 
     // CÁLCULO DE COMISSÕES BETFAIR
+    // Importante: Lucro Líquido Real e Comissões são valores DA CONTA INTEIRA
+    // (Banca Real vs Banca Inicial), então precisam ser comparados sempre com o
+    // lucro bruto TOTAL (todas as operações, sem filtro de estratégia/data) —
+    // senão a conta fecha errado quando o usuário filtra só uma estratégia.
+    const lucroBrutoTotal = todasOperacoes.reduce((acc, op) => acc + op.pnl, 0);
     const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
-    const comissoes = lucroBruto - lucroLiquidoReal;
+    const comissoes = lucroBrutoTotal - lucroLiquidoReal;
     let pctComissoes = 0;
-    if (lucroBruto > 0) {
-        pctComissoes = (comissoes / lucroBruto) * 100;
+    if (lucroBrutoTotal > 0) {
+        pctComissoes = (comissoes / lucroBrutoTotal) * 100;
     }
     const elComissoesValor = document.getElementById('comissoes-valor');
     const elComissoesPct = document.getElementById('comissoes-pct');
@@ -245,7 +250,7 @@ function aplicarFiltros() {
         elComissoesValor.innerText = `R$ ${comissoes.toFixed(2)}`;
     }
     if (elComissoesPct) {
-        elComissoesPct.innerText = `${pctComissoes.toFixed(2)}% em relação ao Bruto`;
+        elComissoesPct.innerText = `${pctComissoes.toFixed(2)}% em relação ao Bruto (total da conta)`;
     }
 
     const comResp = filtradas.filter(op => op.resp > 0);
