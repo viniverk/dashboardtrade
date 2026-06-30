@@ -83,24 +83,29 @@
 
         <div id="conteudo-dashboard">
             <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px;">
-                <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3>Lucro Bruto</h3>
-                    <p id="lucro-bruto">R$ 0,00</p>
-                </div>
-                <div class="card" style="flex: 1; min-width: 140px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
-                    <h3>Lucro Líquido Real</h3>
-                    <p id="lucro-liquido">R$ 0,00</p>
-                </div>
-                <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3>Comissões Betfair</h3>
-                    <p id="comissoes-valor" style="color: #ef4444;">R$ 0,00</p>
-                    <span id="comissoes-pct" style="font-size: 11px; color: #888; display: block; margin-top: 5px;">0.00% do Bruto</span>
-                </div>
-                <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3>Stake Média</h3>
-                    <p id="media-responsabilidade" style="color: #d97706;">R$ 0,00</p>
-                </div>
-                <div class="card" style="flex: 1; min-width: 140px;">
+    
+    <div class="card" style="flex: 1; min-width: 140px;">
+        <h3>Lucro Bruto</h3>
+        <p id="lucro-bruto">R$ 0,00</p>
+    </div>
+
+    <div class="card" style="flex: 1; min-width: 140px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
+        <h3>Lucro Líquido Real</h3>
+        <p id="lucro-liquido">R$ 0,00</p>
+    </div>
+
+    <div class="card" style="flex: 1; min-width: 140px;">
+        <h3>Comissões Betfair</h3>
+        <p id="comissoes-valor" style="color: #ef4444;">R$ 0,00</p>
+        <span id="comissoes-pct" style="font-size: 11px; color: #888; display: block; margin-top: 5px;">0.00% do Bruto</span>
+    </div>
+
+    <div class="card" style="flex: 1; min-width: 140px;">
+        <h3>Stake Média</h3>
+        <p id="media-responsabilidade" style="color: #d97706;">R$ 0,00</p>
+    </div>
+
+    <div class="card" style="flex: 1; min-width: 140px;">
         <h3>Desempenho (G/R)</h3>
         <p id="relacao-green-red" style="font-size: 14px; font-weight: bold;">G: 0 | R: 0</p>
         <div style="display: flex; gap: 5px; font-size: 11px;">
@@ -108,11 +113,18 @@
             <span id="media-red" style="color: red;">R: R$ 0</span>
         </div>
     </div>
-                <div class="card" style="flex: 1; min-width: 180px;">
-                    <h3>ROI s/ Stake Média</h3>
-                    <p id="roi-stake">0,00%</p>
-                </div>
-            </div>
+
+    <div class="card" style="flex: 1; min-width: 140px; background-color: #fef2f2; border: 1px solid #fee2e2;">
+        <h3>Relação de Lucro (Payoff)</h3>
+        <p id="payoff-valor" style="font-size: 24px; font-weight: bold; color: #b91c1c;">0.00</p>
+        <span style="font-size: 11px; color: #666;">greens para cada 1 red</span>
+    </div>
+
+    <div class="card" style="flex: 1; min-width: 180px;">
+        <h3>ROI s/ Stake Média</h3>
+        <p id="roi-stake">0,00%</p>
+    </div>
+</div>
 
             <div class="chart-container" style="margin-top: 20px; background: white; padding: 15px; border-radius: 10px; height: 400px; position: relative;">
                 <canvas id="meuGrafico" style="height: 100%; width: 100%;"></canvas>
