@@ -150,8 +150,15 @@ h1, h2, h3 {
   color: var(--text-primary);
 }
 
+.banca-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  margin-top: 6px;
+}
+
 .banca-label {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 13px;
   color: var(--text-muted);
   display: flex;
@@ -164,6 +171,16 @@ h1, h2, h3 {
   font-size: 20px;
   font-weight: 600;
   color: var(--accent-amber);
+  letter-spacing: 0.01em;
+}
+
+.banca-label--real { color: var(--text-faint); }
+
+#texto-banca-real-total {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--green);
   letter-spacing: 0.01em;
 }
 
@@ -446,6 +463,21 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--text-faint);
   margin: 2px 0 10px;
 }
+
+.card--config-nubank {
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+}
+
+.card--config-nubank h3 { color: #a78bfa; }
+
+.card--config-nubank .hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 2px 0 10px;
+}
+
+.card--config-nubank .input-money span { color: #a78bfa; }
 
 .input-money {
   display: flex;
