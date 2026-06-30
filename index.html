@@ -1,207 +1,465 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradeEsportivo Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAvWlAUn5hzr-rWAaTZDAkVsPOJhlkzDC4",
+    authDomain: "tradeesportivodashboard.firebaseapp.com",
+    projectId: "tradeesportivodashboard",
+    storageBucket: "tradeesportivodashboard.firebasestorage.app",
+    messagingSenderId: "911731188311",
+    appId: "1:911731188311:web:fcdc39a0557d471fb8f912"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+let todasOperacoes = [];
+let chart;
+let sortDirection = 1;
+let usuarioAtual = null;
+
+let bancaNuvem = 1000.00; 
+let bancaInicialNuvem = 750.00; 
+
+Chart.register(ChartDataLabels);
+
+function tratarValor(valor) {
+    if (!valor) return 0;
+    let s = valor.toString().replace(/["'\sR$]/g, '');
+    if (s === '--' || s === '-') return 0;
+    if (s.startsWith('(') && s.endsWith(')')) s = '-' + s.slice(1, -1);
+    const num = parseFloat(s.replace(',', '.'));
+    return isNaN(num) ? 0 : num;
+}
+
+const monthOrder = {
+    "jan": 0, "feb": 1, "fev": 1, "mar": 2, "apr": 3, "abr": 3, "may": 4, "mai": 4,
+    "jun": 5, "jul": 6, "aug": 7, "ago": 7, "sep": 8, "set": 8, "oct": 9, "out": 9,
+    "nov": 10, "dec": 11, "dez": 11
+};
+
+function atualizarLucroLiquidoReal() {
+    const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
+    const elLucroLiq = document.getElementById('lucro-liquido');
+    if (elLucroLiq) {
+        elLucroLiq.innerText = `R$ ${lucroLiquidoReal.toFixed(2)}`;
+        elLucroLiq.style.color = lucroLiquidoReal >= 0 ? 'green' : 'red';
+    }
+}
+
+async function puxarBancaDoFirebase(user) {
+    if (!user) return;
+    try {
+        const docRef = doc(db, "configuracoes_banca", user.uid);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            bancaNuvem = parseFloat(docSnap.data().valorBanca || 1000);
+            bancaInicialNuvem = parseFloat(docSnap.data().valorBancaInicial || 750);
+        } else {
+            bancaNuvem = 1000;
+            bancaInicialNuvem = 750;
+        }
+        
+        document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
+        document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
+        document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        
+        atualizarLucroLiquidoReal();
+        aplicarFiltros(); // Força a atualização do KPI de Comissões após puxar a banca
+    } catch (e) {
+        console.error("Erro ao ler banca:", e);
+    }
+}
+
+async function salvarConfiguracoesNoFirebase() {
+    if (!usuarioAtual) {
+        alert("Você precisa estar logado para salvar as configurações!");
+        return;
+    }
     
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-</head>
-<body>
-
-    <div id="auth-container">
-        <div class="login-box">
-            <h2>Acesse o seu Dashboard</h2>
-            <p>Conecte-se com a sua conta Google para visualizar as suas métricas.</p>
-            <button id="btn-login">Login com Google</button>
-        </div>
-    </div>
-
-    <div id="dashboard" style="display:none;">
+    bancaNuvem = parseFloat(document.getElementById('input-banca-usuario').value) || 0;
+    bancaInicialNuvem = parseFloat(document.getElementById('input-banca-inicial').value) || 0;
+    
+    try {
+        const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
+        await setDoc(docRef, { 
+            valorBanca: bancaNuvem,
+            valorBancaInicial: bancaInicialNuvem 
+        }, { merge: true });
         
-        <header style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-            <div>
-                <h1 style="margin: 0;">Dashboard de Resultados</h1>
-                <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: #1e3a8a;">
-                    Banca Total: <span id="texto-banca-superior">R$ 0,00</span>
-                </p>
-            </div>
-            
-            <div class="abas" style="display: flex; gap: 10px;">
-                <button id="btn-aba-dashboard" style="padding: 10px 20px; cursor: pointer; background: #1e40af; color: white; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">📊 Visão Geral</button>
-                <button id="btn-aba-ranking" style="padding: 10px 20px; cursor: pointer; background: #e5e7eb; color: #374151; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">🏆 Ranking</button>
-                <button id="btn-aba-config" style="padding: 10px 20px; cursor: pointer; background: #e5e7eb; color: #374151; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s;">⚙️ Configurações</button>
-            </div>
-        </header>
+        document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        atualizarLucroLiquidoReal();
+        aplicarFiltros(); // Atualiza a comissão na hora
+        alert("Configurações salvas com sucesso!");
+    } catch (e) {
+        console.error("Erro ao salvar configurações:", e);
+        alert("Falha ao salvar dados no Firebase.");
+    }
+}
+
+atualizarLucroLiquidoReal();
+
+async function carregarDadosDoGitHub() {
+    const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
+    
+    try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const linhas = text.split('\n');
         
-        <div class="filtros-container" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 15px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <div style="flex: 1; min-width: 150px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Estratégia:</label>
-                <select id="filtro-estrategia" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="TODAS">Todas</option>
-                    <option value="MO">Match Odds</option>
-                    <option value="LG">Lay Goleada</option>
-                </select>
-            </div>
-            <div style="flex: 1; min-width: 120px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Ano:</label>
-                <select id="filtro-ano" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="TODOS">Todos</option>
-                </select>
-            </div>
-            <div style="flex: 1; min-width: 120px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Mês:</label>
-                <select id="filtro-mes" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="TODOS">Todos</option>
-                    <option value="0">Janeiro</option>
-                    <option value="1">Fevereiro</option>
-                    <option value="2">Março</option>
-                    <option value="3">Abril</option>
-                    <option value="4">Maio</option>
-                    <option value="5">Junho</option>
-                    <option value="6">Julho</option>
-                    <option value="7">Agosto</option>
-                    <option value="8">Setembro</option>
-                    <option value="9">Outubro</option>
-                    <option value="10">Novembro</option>
-                    <option value="11">Dezembro</option>
-                </select>
-            </div>
-            <div style="flex: 1; min-width: 140px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Data Específica:</label>
-                <select id="filtro-data" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc;">
-                    <option value="TODAS">Todas as Datas</option>
-                </select>
-            </div>
-            <div style="flex: 1; min-width: 140px;">
-                <label style="font-weight: bold; font-size: 13px; color: #555;">Gráfico (Visual):</label>
-                <select id="tipo-grafico" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; background-color: #f0f8ff;">
-                    <option value="bar">Barras</option>
-                    <option value="line">Linhas</option>
-                </select>
-            </div>
-        </div>
+        const cabecalhos = linhas[0].toLowerCase().replace(/\r/g, '').split(',');
+        
+        const idxData = cabecalhos.findIndex(c => c.includes('resolvida'));
+        const idxDesc = cabecalhos.findIndex(c => c.includes('descri'));
+        const idxOdd = cabecalhos.findIndex(c => c.includes('cota'));
+        const idxResp = cabecalhos.findIndex(c => c.includes('risco'));
+        const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
+        const idxStake = cabecalhos.findIndex(c => c.includes('valor apostado') || c.includes('stake'));
 
-        <div id="conteudo-dashboard">
-            <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px;">
-                
-                <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3>Lucro Bruto</h3>
-                    <p id="lucro-bruto">R$ 0,00</p>
-                </div>
+        let agrupador = {};
 
-                <div class="card" style="flex: 1; min-width: 140px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
-                    <h3 title="Calculado como: Banca Total Salva - Banca Inicial Salva">Lucro Líquido Real</h3>
-                    <p id="lucro-liquido">R$ 0,00</p>
-                </div>
+        for (let i = 1; i < linhas.length; i++) {
+            const lineClean = linhas[i].trim().replace(/\r/g, '');
+            if (!lineClean || lineClean.toLowerCase().includes("status")) continue;
 
-                <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3 title="Calculado como: Lucro Bruto - Lucro Líquido Real">Comissões Betfair</h3>
-                    <p id="comissoes-valor" style="color: #ef4444;">R$ 0,00</p>
-                    <span id="comissoes-pct" style="font-size: 11px; color: #888; display: block; margin-top: 5px;">0.00% do Bruto</span>
-                </div>
+            const colunas = lineClean.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
 
-                <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3>Stake Média</h3>
-                    <p id="media-responsabilidade" style="color: #d97706;">R$ 0,00</p>
-                </div>
-                <div class="card" style="flex: 1; min-width: 140px;">
-                    <h3 title="Representa a porcentagem de lucro bruto em relação à Stake Média">% de Lucro s/ Stake</h3>
-                    <p id="pct-lucro">0,00%</p>
-                </div>
-                <div class="card" style="flex: 1; min-width: 180px;">
-                    <h3 title="Retorno sobre a Stake Média (Unidades Ganhas/Perdidas baseadas no Lucro Bruto)">ROI s/ Stake Média</h3>
-                    <p id="roi-stake">0,00%</p>
-                </div>
-            </div>
-
-            <div class="chart-container" style="margin-top: 20px; background: white; padding: 15px; border-radius: 10px; height: 400px; max-height: 400px; position: relative;">
-                <canvas id="meuGrafico" style="height: 100%; width: 100%;"></canvas>
-            </div>
-
-            <div class="table-container" style="margin-top: 20px; background: white; padding: 20px; border-radius: 10px;">
-                <h3>Listagem de Operações Filtradas</h3>
-                <table id="tabela-operacoes" style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
-                    <thead>
-                        <tr style="border-bottom: 2px solid #ddd; background-color: #f8f9fa; cursor: pointer;">
-                            <th onclick="ordenarTabela('mercado')" style="padding: 10px;" title="Clique para ordenar">Mercado ↕</th>
-                            <th onclick="ordenarTabela('data')" style="padding: 10px;" title="Clique para ordenar">Data/Hora ↕</th>
-                            <th onclick="ordenarTabela('odd')" style="padding: 10px;" title="Clique para ordenar">ODD ↕</th>
-                            <th onclick="ordenarTabela('resp')" style="padding: 10px;" title="Clique para ordenar">Responsabilidade ↕</th>
-                            <th onclick="ordenarTabela('pnl')" style="padding: 10px;" title="Clique para ordenar">Lucro/Perda (R$) ↕</th>
-                        </tr>
-                    </thead>
-                    <tbody id="corpo-tabela"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="conteudo-ranking" style="display:none; margin-top: 20px;">
-            <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px;">
-                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #10b981;">
-                    <h3 style="color: #10b981;">✅ Maior Green</h3>
-                    <p id="rank-green" style="color: #10b981;">R$ 0,00</p>
-                    <span id="rank-green-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
-                </div>
-                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #ef4444;">
-                    <h3 style="color: #ef4444;">❌ Maior Red</h3>
-                    <p id="rank-red" style="color: #ef4444;">R$ 0,00</p>
-                    <span id="rank-red-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
-                </div>
-                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #f59e0b;">
-                    <h3 style="color: #f59e0b;">⚠️ Maior Responsabilidade</h3>
-                    <p id="rank-resp" style="color: #f59e0b;">R$ 0,00</p>
-                    <span id="rank-resp-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
-                </div>
-                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #3b82f6;">
-                    <h3 style="color: #3b82f6;">🎯 Maior Odd</h3>
-                    <p id="rank-odd" style="color: #3b82f6;">0.00</p>
-                    <span id="rank-odd-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
-                </div>
-                <div class="card" style="flex: 1; min-width: 250px; border-left: 5px solid #8b5cf6;">
-                    <h3 style="color: #8b5cf6;">💰 Maior Stake</h3>
-                    <p id="rank-stake" style="color: #8b5cf6;">R$ 0,00</p>
-                    <span id="rank-stake-desc" style="font-size: 12px; color: #666; display: block; margin-top: 5px; white-space: pre-wrap;">-</span>
-                </div>
-            </div>
-        </div>
-																									   
-								   
-																						 
-															
-																										  
-																									  
-		  
-	  
-
-        <div id="conteudo-configuracoes" style="display:none; margin-top: 20px;">
-            <div class="cards" style="display: flex; flex-wrap: wrap; gap: 15px;">
-                <div class="card" style="flex: 1; min-width: 250px; background-color: #f0fdf4; border: 1px solid #bbf7d0;">
-                    <h3>Banca Total Atual (Nuvem)</h3>
-                    <div style="display: flex; align-items: center; margin-top: 8px; gap: 5px;">
-                        <span style="font-size: 14px; font-weight: bold; color: #166534;">R$</span>
-                        <input type="number" id="input-banca-usuario" value="1000.00" step="50" style="width: 100%; padding: 6px; border: 1px solid #abc; border-radius: 4px; font-size: 15px; font-weight: bold; color: #166534;">
-                    </div>
-                </div>
-                <div class="card" style="flex: 1; min-width: 250px; background-color: #eff6ff; border: 1px solid #bfdbfe;">
-                    <h3>Banca Inicial (Nuvem)</h3>
-                    <p style="font-size: 11px; color: #666; margin: 2px 0 8px 0;">Usada para calcular o Lucro Líquido Real.</p>
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                        <span style="font-size: 14px; font-weight: bold; color: #1e3a8a;">R$</span>
-                        <input type="number" id="input-banca-inicial" value="750.00" step="50" style="width: 100%; padding: 6px; border: 1px solid #abc; border-radius: 4px; font-size: 15px; font-weight: bold; color: #1e3a8a;">
-                    </div>
-                </div>
-            </div>
+            let mercadoNome = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim() : "Desconhecido";
+            const dataHoraCompleta = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : "Sem data";
+            const lucro = tratarValor(colunas[idxLucro]);
+            const resp = tratarValor(colunas[idxResp]);
+            const odd = tratarValor(colunas[idxOdd]);
+            const stake = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
             
-            <div style="margin-top: 20px;">
-                <button id="btn-salvar-config" style="padding: 12px 25px; background: #1e40af; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s;">💾 Salvar Configurações</button>
-            </div>
-        </div>
+            const dataLimpa = dataHoraCompleta.split(' ')[0];
+            const partesData = dataLimpa.split('-');
+            const ano = partesData.length === 3 ? "20" + partesData[2] : "Todos";
+            const mes = partesData.length === 3 ? partesData[1].toLowerCase() : "Todos";
 
-    </div>
+            const chave = `${mercadoNome}|${dataLimpa}`;
 
-    <script type="module" src="script.js"></script>
-</body>
-</html>
+            if (!agrupador[chave]) {
+                agrupador[chave] = { mercado: mercadoNome, data: dataHoraCompleta, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0, stake: 0 };
+            }
+            
+            agrupador[chave].pnl += lucro;
+            agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
+            agrupador[chave].odd = Math.max(agrupador[chave].odd, odd);
+            agrupador[chave].stake = Math.max(agrupador[chave].stake, stake);
+        }
+
+        todasOperacoes = Object.values(agrupador);
+        
+        preencherFiltrosDinamicos();
+        aplicarFiltros();
+        
+    } catch (error) { console.error("Erro no processamento:", error); }
+}
+
+function preencherFiltrosDinamicos() {
+    const anos = [...new Set(todasOperacoes.map(o => o.ano))].filter(a => a !== "Todos").sort();
+    const datas = [...new Set(todasOperacoes.map(o => o.dataLimpa))].filter(d => d !== "Sem data").sort();
+    
+    const selAno = document.getElementById('filtro-ano');
+    const selData = document.getElementById('filtro-data');
+    
+    if(selAno) {
+        selAno.innerHTML = '<option value="TODOS">Todos</option>';
+        anos.forEach(a => selAno.innerHTML += `<option value="${a}">${a}</option>`);
+    }
+    if(selData) {
+        selData.innerHTML = '<option value="TODAS">Todas as Datas</option>';
+        datas.forEach(d => selData.innerHTML += `<option value="${d}">${d}</option>`);
+    }
+}
+
+function aplicarFiltros() {
+    const fEstrat = document.getElementById('filtro-estrategia').value;
+    const fAno = document.getElementById('filtro-ano').value;
+    const fMes = document.getElementById('filtro-mes').value; 
+    const fData = document.getElementById('filtro-data').value;
+    const fGrafico = document.getElementById('tipo-grafico').value;
+
+    const mesesMap = {
+        "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun",
+        "6": "jul", "7": "ago", "8": "set", "9": "out", "10": "nov", "11": "dez"
+    };
+    const mesBuscado = mesesMap[fMes];
+
+    const filtradas = todasOperacoes.filter(op => {
+        const mercLower = op.mercado.toLowerCase();
+        const condEstrat = (fEstrat === 'TODAS' || 
+                           (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || 
+                           (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
+                           
+        const condAno = (fAno === 'TODOS' || op.ano === fAno);
+        const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
+        const condData = (fData === 'TODAS' || op.dataLimpa === fData);
+        
+        return condEstrat && condAno && condMes && condData;
+    });
+
+    const lucroBruto = filtradas.reduce((acc, op) => acc + op.pnl, 0);
+    document.getElementById('lucro-bruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
+    document.getElementById('lucro-bruto').style.color = lucroBruto >= 0 ? 'green' : 'red';
+
+    // CÁLCULO DE COMISSÕES BETFAIR
+    const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
+    const comissoes = lucroBruto - lucroLiquidoReal;
+    let pctComissoes = 0;
+    if (lucroBruto > 0) {
+        pctComissoes = (comissoes / lucroBruto) * 100;
+    }
+    const elComissoesValor = document.getElementById('comissoes-valor');
+    const elComissoesPct = document.getElementById('comissoes-pct');
+    if (elComissoesValor) {
+        elComissoesValor.innerText = `R$ ${comissoes.toFixed(2)}`;
+    }
+    if (elComissoesPct) {
+        elComissoesPct.innerText = `${pctComissoes.toFixed(2)}% em relação ao Bruto`;
+    }
+
+    const comResp = filtradas.filter(op => op.resp > 0);
+    const totalResp = comResp.reduce((acc, op) => acc + op.resp, 0);
+    const mediaResp = comResp.length > 0 ? (totalResp / comResp.length) : 0;
+    document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
+
+    const pctLucro = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
+    const elPctLucro = document.getElementById('pct-lucro');
+    if (elPctLucro) {
+        elPctLucro.innerText = `${pctLucro.toFixed(2)}%`;
+        elPctLucro.style.color = pctLucro >= 0 ? 'green' : 'red';
+    }
+
+    const roiStake = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
+    const unidades = mediaResp > 0 ? (lucroBruto / mediaResp).toFixed(2) : 0;
+																																	 
+    const elRoiStake = document.getElementById('roi-stake');
+    if (elRoiStake) {
+        const roiDisplay = Math.min(Math.abs(roiStake), 9999); 
+        const sinal = roiStake > 0 ? '+' : (roiStake < 0 ? '-' : '');
+        elRoiStake.innerText = `${sinal}${roiDisplay.toFixed(2)}% (${sinal}${Math.abs(unidades)} und)`;
+        elRoiStake.style.color = roiStake >= 0 ? 'green' : 'red';
+    }
+																																			 
+
+    atualizarTabela(filtradas);
+    renderizarGrafico(filtradas, fGrafico);
+    atualizarRanking(filtradas);
+}
+
+function atualizarRanking(lista) {
+    if (!lista || lista.length === 0) {
+        ['green', 'red', 'resp', 'odd', 'stake'].forEach(id => {
+            const el = document.getElementById(`rank-${id}`);
+            const elDesc = document.getElementById(`rank-${id}-desc`);
+            if(el) el.innerText = id === 'odd' ? '0.00' : 'R$ 0,00';
+            if(elDesc) elDesc.innerText = '-';
+        });
+        return;
+    }
+
+    let maxGreen = lista[0], maxRed = lista[0];
+    let maxResp = lista[0], maxOdd = lista[0], maxStake = lista[0];
+
+    lista.forEach(op => {
+        if (op.pnl > maxGreen.pnl) maxGreen = op;
+        if (op.pnl < maxRed.pnl) maxRed = op;
+        if (op.resp > maxResp.resp) maxResp = op;
+        if (op.odd > maxOdd.odd) maxOdd = op;
+        if (op.stake > maxStake.stake) maxStake = op;
+    });
+
+    const formatDesc = (op) => {
+        let m = op.mercado;
+        m = m.replace(/Resultado da partida/ig, "Match Odds").replace(/Resultado/ig, "Match Odds").replace(/Placar correto/ig, "Lay Goleada").replace(/Placar/ig, "Lay Goleada");
+        return `${m}\nData: ${op.dataLimpa}`;
+    };
+
+    document.getElementById('rank-green').innerText = `R$ ${maxGreen.pnl.toFixed(2)}`;
+    document.getElementById('rank-green-desc').innerText = formatDesc(maxGreen);
+
+    document.getElementById('rank-red').innerText = `R$ ${maxRed.pnl.toFixed(2)}`;
+    document.getElementById('rank-red-desc').innerText = formatDesc(maxRed);
+
+    document.getElementById('rank-resp').innerText = `R$ ${maxResp.resp.toFixed(2)}`;
+    document.getElementById('rank-resp-desc').innerText = formatDesc(maxResp);
+
+    document.getElementById('rank-odd').innerText = maxOdd.odd.toFixed(2);
+    document.getElementById('rank-odd-desc').innerText = formatDesc(maxOdd);
+
+    document.getElementById('rank-stake').innerText = `R$ ${maxStake.stake.toFixed(2)}`;
+    document.getElementById('rank-stake-desc').innerText = formatDesc(maxStake);
+}
+
+function renderizarGrafico(lista, tipoGrafico) {
+    const canvas = document.getElementById('meuGrafico');
+    if (!canvas) return; 
+    const ctx = canvas.getContext('2d');
+    
+    if (chart) chart.destroy();
+
+    let agrupadoPorData = {};
+    lista.forEach(o => {
+        if(!agrupadoPorData[o.dataLimpa]) agrupadoPorData[o.dataLimpa] = 0;
+        agrupadoPorData[o.dataLimpa] += o.pnl;
+    });
+
+    const labels = Object.keys(agrupadoPorData).sort((a, b) => {
+        const numMesA = monthOrder[a.split('-')[1].toLowerCase()];
+        const numMesB = monthOrder[b.split('-')[1].toLowerCase()];
+        const valA = new Date("20" + a.split('-')[2], numMesA, a.split('-')[0]);
+        const valB = new Date("20" + b.split('-')[2], numMesB, b.split('-')[0]);
+        return valA - valB;
+    });
+    
+    const valoresDiarios = labels.map(l => agrupadoPorData[l]);
+    let dadosParaGrafico = tipoGrafico === 'line' ? valoresDiarios.map((v, i, arr) => arr.slice(0, i + 1).reduce((a, b) => a + b, 0)) : valoresDiarios;
+
+    chart = new Chart(ctx, {
+        type: tipoGrafico,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: tipoGrafico === 'line' ? 'Evolução da Banca (R$)' : 'Lucro Diário (R$)',
+                data: dadosParaGrafico, 
+                backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)',
+                borderColor: '#36a2eb',
+                borderWidth: 2,
+                fill: tipoGrafico === 'line',
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 30 } },
+            scales: { y: { beginAtZero: true, grace: '20%' } },
+            plugins: { datalabels: { anchor: 'end', align: 'top', formatter: v => 'R$ ' + v.toFixed(2) } }
+        }
+    });
+}
+
+function atualizarTabela(lista) {
+    const corpo = document.getElementById('corpo-tabela');
+    if(!corpo) return;
+    corpo.innerHTML = "";
+    
+    lista.forEach(op => {
+        const tr = document.createElement('tr');
+        
+        let displayMercado = op.mercado;
+        displayMercado = displayMercado.replace(/Resultado da partida/ig, "Match Odds")
+                                       .replace(/Resultado/ig, "Match Odds")
+                                       .replace(/Placar correto/ig, "Lay Goleada")
+                                       .replace(/Placar/ig, "Lay Goleada");
+
+        tr.innerHTML = `
+            <td style="padding:10px; font-size: 13px;">${displayMercado}</td>
+            <td style="padding:10px; font-size: 13px;">${op.data}</td>
+            <td style="padding:10px; font-size: 13px; font-weight: bold; color: #1e40af;">${op.odd > 0 ? op.odd.toFixed(2) : '-'}</td>
+            <td style="padding:10px; font-size: 13px;">${op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-'}</td>
+            <td style="padding:10px; font-size: 13px; color:${op.pnl >= 0 ? 'green':'red'}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>
+        `;
+        corpo.appendChild(tr);
+    });
+}
+
+window.ordenarTabela = (coluna) => {
+    sortDirection *= -1; 
+    
+    todasOperacoes.sort((a, b) => {
+        let valA = a[coluna];
+        let valB = b[coluna];
+        
+        if (coluna === 'data') {
+            const getTimestamp = (dStr) => {
+                if (!dStr || dStr === 'Sem data') return 0;
+                const parts = dStr.split(/[\s-:]+/);
+                if (parts.length < 3) return 0;
+                const dia = parseInt(parts[0]);
+                const mes = monthOrder[parts[1].toLowerCase()] || 0;
+                const ano = parseInt(parts[2]) + 2000;
+                const hr = parts[3] ? parseInt(parts[3]) : 0;
+                const min = parts[4] ? parseInt(parts[4]) : 0;
+                const sec = parts[5] ? parseInt(parts[5]) : 0;
+                return new Date(ano, mes, dia, hr, min, sec).getTime();
+            };
+            valA = getTimestamp(valA);
+            valB = getTimestamp(valB);
+        }
+
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return valA.localeCompare(valB) * sortDirection;
+        }
+        
+        return (valA - valB) * sortDirection;
+    });
+    
+    aplicarFiltros(); 
+};
+
+function switchTab(activeBtnId, activeContentId) {
+    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-configuracoes'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = 'none';
+    });
+    
+    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-config'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) {
+            el.style.background = '#e5e7eb';
+            el.style.color = '#374151';
+        }
+    });
+
+    const activeContent = document.getElementById(activeContentId);
+    if(activeContent) activeContent.style.display = 'block';
+
+    const activeBtn = document.getElementById(activeBtnId);
+    if(activeBtn) {
+        activeBtn.style.background = '#1e40af';
+        activeBtn.style.color = 'white';
+    }
+}
+
+const btnDash = document.getElementById('btn-aba-dashboard');
+if(btnDash) btnDash.addEventListener('click', () => switchTab('btn-aba-dashboard', 'conteudo-dashboard'));
+
+const btnRank = document.getElementById('btn-aba-ranking');
+if(btnRank) btnRank.addEventListener('click', () => switchTab('btn-aba-ranking', 'conteudo-ranking'));
+
+const btnConfig = document.getElementById('btn-aba-config');
+if(btnConfig) btnConfig.addEventListener('click', () => switchTab('btn-aba-config', 'conteudo-configuracoes'));
+
+['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('change', aplicarFiltros);
+});
+
+const btnSalvarConfig = document.getElementById('btn-salvar-config');
+if(btnSalvarConfig) btnSalvarConfig.addEventListener('click', salvarConfiguracoesNoFirebase);
+
+document.getElementById('btn-login').addEventListener('click', () => {
+    signInWithPopup(auth, provider).then((result) => {
+        usuarioAtual = result.user;
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        puxarBancaDoFirebase(usuarioAtual);
+        carregarDadosDoGitHub();
+    }).catch(error => console.error("Erro no login:", error));
+});
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        usuarioAtual = user;
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        puxarBancaDoFirebase(usuarioAtual);
+        carregarDadosDoGitHub();
+    }
+});
