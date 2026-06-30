@@ -24,9 +24,14 @@
         <header class="dashboard-header">
             <div>
                 <h1>Dashboard de Resultados</h1>
-                <p class="banca-label">
-                    Banca Total: <span id="texto-banca-superior">R$ 0,00</span>
-                </p>
+                <div class="banca-resumo">
+                    <p class="banca-label">
+                        Banca Betfair: <span id="texto-banca-superior">R$ 0,00</span>
+                    </p>
+                    <p class="banca-label banca-label--real">
+                        Banca Real Total: <span id="texto-banca-real-total">R$ 0,00</span>
+                    </p>
+                </div>
             </div>
 
             <div class="abas">
@@ -171,15 +176,23 @@
         <div id="conteudo-configuracoes" style="display:none; margin-top: 20px;">
             <div class="cards">
                 <div class="card card--config-banca">
-                    <h3>Banca Total Atual (Nuvem)</h3>
+                    <h3>Banca na Betfair</h3>
                     <div class="input-money">
                         <span>R$</span>
                         <input type="number" id="input-banca-usuario" value="1000.00" step="50">
                     </div>
                 </div>
+                <div class="card card--config-nubank">
+                    <h3>Reserva Nubank (CDI)</h3>
+                    <p class="hint">Valor guardado fora da Betfair, rendendo 100% do CDI.</p>
+                    <div class="input-money">
+                        <span>R$</span>
+                        <input type="number" id="input-banca-nubank" value="0.00" step="50">
+                    </div>
+                </div>
                 <div class="card card--config-inicial">
                     <h3>Banca Inicial (Nuvem)</h3>
-                    <p class="hint">Usada para calcular o Lucro Líquido Real.</p>
+                    <p class="hint">Usada para calcular o Lucro Líquido Real (somente Betfair).</p>
                     <div class="input-money">
                         <span>R$</span>
                         <input type="number" id="input-banca-inicial" value="750.00" step="50">
