@@ -258,13 +258,6 @@ function aplicarFiltros() {
     const mediaResp = comResp.length > 0 ? (totalResp / comResp.length) : 0;
     document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
 
-    const pctLucro = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
-    const elPctLucro = document.getElementById('pct-lucro');
-    if (elPctLucro) {
-        elPctLucro.innerText = `${pctLucro.toFixed(2)}%`;
-        setPnlClass(elPctLucro, pctLucro);
-    }
-
     const roiStake = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
     const unidades = mediaResp > 0 ? (lucroBruto / mediaResp).toFixed(2) : 0;
 																																	 
