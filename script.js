@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAvWlAUn5hzr-rWAaTZDAkVsPOJhlkzDC4",
@@ -24,6 +24,9 @@ let usuarioAtual = null;
 let bancaNuvem = 1000.00; 
 let bancaInicialNuvem = 750.00; 
 let bancaNubank = 0.00;
+let movimentacoes = [];
+let totalSaques = 0;
+let totalAportes = 0;
 
 Chart.register(ChartDataLabels);
 
@@ -57,12 +60,131 @@ function atualizarBancaRealTotal() {
     }
 }
 
+// Lucro Líquido Real ajustado por movimentações: saques somam de volta
+// (não são prejuízo, só saíram da Betfair), aportes são descontados
+// (não são lucro, é dinheiro novo entrando).
+function calcularLucroLiquidoReal() {
+    return (bancaNuvem - bancaInicialNuvem) + totalSaques - totalAportes;
+}
+
 function atualizarLucroLiquidoReal() {
-    const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
+    const lucroLiquidoReal = calcularLucroLiquidoReal();
     const elLucroLiq = document.getElementById('lucro-liquido');
     if (elLucroLiq) {
         elLucroLiq.innerText = `R$ ${lucroLiquidoReal.toFixed(2)}`;
         setPnlClass(elLucroLiq, lucroLiquidoReal);
+    }
+}
+
+async function carregarMovimentacoes(user) {
+    if (!user) return;
+    try {
+        const ref = collection(db, "configuracoes_banca", user.uid, "movimentacoes");
+        const q = query(ref, orderBy("data", "desc"));
+        const snap = await getDocs(q);
+        movimentacoes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+        console.error("Erro ao carregar movimentações:", e);
+        movimentacoes = [];
+    }
+    recalcularTotaisMovimentacoes();
+    renderizarMovimentacoes();
+    atualizarLucroLiquidoReal();
+    atualizarBancaRealTotal();
+}
+
+function recalcularTotaisMovimentacoes() {
+    totalSaques = movimentacoes.filter(m => m.tipo === 'saque').reduce((acc, m) => acc + (m.valor || 0), 0);
+    totalAportes = movimentacoes.filter(m => m.tipo === 'aporte').reduce((acc, m) => acc + (m.valor || 0), 0);
+}
+
+function renderizarMovimentacoes() {
+    const elSacado = document.getElementById('total-sacado');
+    const elAportado = document.getElementById('total-aportado');
+    const elAjuste = document.getElementById('ajuste-liquido');
+    if (elSacado) elSacado.innerText = `R$ ${totalSaques.toFixed(2)}`;
+    if (elAportado) elAportado.innerText = `R$ ${totalAportes.toFixed(2)}`;
+    if (elAjuste) {
+        const ajuste = totalSaques - totalAportes;
+        elAjuste.innerText = `R$ ${ajuste.toFixed(2)}`;
+        setPnlClass(elAjuste, ajuste);
+    }
+
+    const corpo = document.getElementById('corpo-tabela-mov');
+    if (!corpo) return;
+    corpo.innerHTML = "";
+
+    if (movimentacoes.length === 0) {
+        corpo.innerHTML = `<tr><td colspan="5" style="color: var(--text-faint); padding: 16px 10px;">Nenhuma movimentação registrada ainda.</td></tr>`;
+        return;
+    }
+
+    movimentacoes.forEach(m => {
+        const tr = document.createElement('tr');
+        const dataFormatada = m.data ? new Date(m.data + 'T00:00:00').toLocaleDateString('pt-BR') : '-';
+        const badgeClass = m.tipo === 'saque' ? 'badge-saque' : 'badge-aporte';
+        const badgeLabel = m.tipo === 'saque' ? 'Saque' : 'Aporte';
+        tr.innerHTML = `
+            <td>${dataFormatada}</td>
+            <td><span class="badge-tipo ${badgeClass}">${badgeLabel}</span></td>
+            <td>R$ ${(m.valor || 0).toFixed(2)}</td>
+            <td>${m.observacao ? m.observacao : '-'}</td>
+            <td><button class="btn-excluir-mov" data-id="${m.id}">Excluir</button></td>
+        `;
+        corpo.appendChild(tr);
+    });
+
+    corpo.querySelectorAll('.btn-excluir-mov').forEach(btn => {
+        btn.addEventListener('click', () => excluirMovimentacao(btn.dataset.id));
+    });
+}
+
+async function registrarMovimentacao() {
+    if (!usuarioAtual) {
+        alert("Você precisa estar logado para registrar movimentações!");
+        return;
+    }
+
+    const tipo = document.getElementById('mov-tipo').value;
+    const data = document.getElementById('mov-data').value;
+    const valor = parseFloat(document.getElementById('mov-valor').value) || 0;
+    const observacao = document.getElementById('mov-obs').value.trim();
+
+    if (!data) {
+        alert("Selecione a data da movimentação.");
+        return;
+    }
+    if (valor <= 0) {
+        alert("Informe um valor maior que zero.");
+        return;
+    }
+
+    try {
+        const ref = collection(db, "configuracoes_banca", usuarioAtual.uid, "movimentacoes");
+        await addDoc(ref, { tipo, data, valor, observacao });
+
+        document.getElementById('mov-valor').value = '';
+        document.getElementById('mov-obs').value = '';
+
+        await carregarMovimentacoes(usuarioAtual);
+        aplicarFiltros();
+    } catch (e) {
+        console.error("Erro ao registrar movimentação:", e);
+        alert("Falha ao registrar movimentação no Firebase.");
+    }
+}
+
+async function excluirMovimentacao(id) {
+    if (!usuarioAtual) return;
+    if (!confirm("Excluir esta movimentação?")) return;
+
+    try {
+        await deleteDoc(doc(db, "configuracoes_banca", usuarioAtual.uid, "movimentacoes", id));
+        await carregarMovimentacoes(usuarioAtual);
+        aplicarFiltros();
+    } catch (e) {
+        console.error("Erro ao excluir movimentação:", e);
+        alert("Falha ao excluir movimentação.");
     }
 }
 
@@ -238,7 +360,7 @@ function aplicarFiltros() {
     // lucro bruto TOTAL (todas as operações, sem filtro de estratégia/data) —
     // senão a conta fecha errado quando o usuário filtra só uma estratégia.
     const lucroBrutoTotal = todasOperacoes.reduce((acc, op) => acc + op.pnl, 0);
-    const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
+    const lucroLiquidoReal = calcularLucroLiquidoReal();
     const comissoes = lucroBrutoTotal - lucroLiquidoReal;
     let pctComissoes = 0;
     if (lucroBrutoTotal > 0) {
@@ -437,12 +559,12 @@ window.ordenarTabela = (coluna) => {
 };
 
 function switchTab(activeBtnId, activeContentId) {
-    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-configuracoes'].forEach(id => {
+    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-movimentacoes', 'conteudo-configuracoes'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = 'none';
     });
 
-    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-config'].forEach(id => {
+    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-mov', 'btn-aba-config'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.classList.remove('active');
     });
@@ -460,6 +582,12 @@ if(btnDash) btnDash.addEventListener('click', () => switchTab('btn-aba-dashboard
 const btnRank = document.getElementById('btn-aba-ranking');
 if(btnRank) btnRank.addEventListener('click', () => switchTab('btn-aba-ranking', 'conteudo-ranking'));
 
+const btnMov = document.getElementById('btn-aba-mov');
+if(btnMov) btnMov.addEventListener('click', () => switchTab('btn-aba-mov', 'conteudo-movimentacoes'));
+
+const btnRegistrarMov = document.getElementById('btn-registrar-mov');
+if(btnRegistrarMov) btnRegistrarMov.addEventListener('click', registrarMovimentacao);
+
 const btnConfig = document.getElementById('btn-aba-config');
 if(btnConfig) btnConfig.addEventListener('click', () => switchTab('btn-aba-config', 'conteudo-configuracoes'));
 
@@ -471,12 +599,16 @@ if(btnConfig) btnConfig.addEventListener('click', () => switchTab('btn-aba-confi
 const btnSalvarConfig = document.getElementById('btn-salvar-config');
 if(btnSalvarConfig) btnSalvarConfig.addEventListener('click', salvarConfiguracoesNoFirebase);
 
+const inputMovData = document.getElementById('mov-data');
+if (inputMovData) inputMovData.value = new Date().toISOString().split('T')[0];
+
 document.getElementById('btn-login').addEventListener('click', () => {
     signInWithPopup(auth, provider).then((result) => {
         usuarioAtual = result.user;
         document.getElementById('auth-container').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         puxarBancaDoFirebase(usuarioAtual);
+        carregarMovimentacoes(usuarioAtual);
         carregarDadosDoGitHub();
     }).catch(error => console.error("Erro no login:", error));
 });
@@ -487,6 +619,7 @@ onAuthStateChanged(auth, (user) => {
         document.getElementById('auth-container').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         puxarBancaDoFirebase(usuarioAtual);
+        carregarMovimentacoes(usuarioAtual);
         carregarDadosDoGitHub();
     }
 });
