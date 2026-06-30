@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+Relatório Desempenho Diárioimport { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
@@ -41,12 +41,19 @@ const monthOrder = {
     "nov": 10, "dec": 11, "dez": 11
 };
 
+// Aplica classe de cor positiva/negativa em um elemento de valor monetário
+function setPnlClass(el, valor) {
+    if (!el) return;
+    el.classList.remove('pnl-pos', 'pnl-neg');
+    el.classList.add(valor >= 0 ? 'pnl-pos' : 'pnl-neg');
+}
+
 function atualizarLucroLiquidoReal() {
     const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
     const elLucroLiq = document.getElementById('lucro-liquido');
     if (elLucroLiq) {
         elLucroLiq.innerText = `R$ ${lucroLiquidoReal.toFixed(2)}`;
-        elLucroLiq.style.color = lucroLiquidoReal >= 0 ? 'green' : 'red';
+        setPnlClass(elLucroLiq, lucroLiquidoReal);
     }
 }
 
@@ -205,8 +212,9 @@ function aplicarFiltros() {
     });
 
     const lucroBruto = filtradas.reduce((acc, op) => acc + op.pnl, 0);
-    document.getElementById('lucro-bruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
-    document.getElementById('lucro-bruto').style.color = lucroBruto >= 0 ? 'green' : 'red';
+    const elLucroBruto = document.getElementById('lucro-bruto');
+    elLucroBruto.innerText = `R$ ${lucroBruto.toFixed(2)}`;
+    setPnlClass(elLucroBruto, lucroBruto);
 
     // CÁLCULO DE COMISSÕES BETFAIR
     const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
@@ -233,7 +241,7 @@ function aplicarFiltros() {
     const elPctLucro = document.getElementById('pct-lucro');
     if (elPctLucro) {
         elPctLucro.innerText = `${pctLucro.toFixed(2)}%`;
-        elPctLucro.style.color = pctLucro >= 0 ? 'green' : 'red';
+        setPnlClass(elPctLucro, pctLucro);
     }
 
     const roiStake = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
@@ -244,7 +252,7 @@ function aplicarFiltros() {
         const roiDisplay = Math.min(Math.abs(roiStake), 9999); 
         const sinal = roiStake > 0 ? '+' : (roiStake < 0 ? '-' : '');
         elRoiStake.innerText = `${sinal}${roiDisplay.toFixed(2)}% (${sinal}${Math.abs(unidades)} und)`;
-        elRoiStake.style.color = roiStake >= 0 ? 'green' : 'red';
+        setPnlClass(elRoiStake, roiStake);
     }
 																																			 
 
@@ -321,6 +329,9 @@ function renderizarGrafico(lista, tipoGrafico) {
     const valoresDiarios = labels.map(l => agrupadoPorData[l]);
     let dadosParaGrafico = tipoGrafico === 'line' ? valoresDiarios.map((v, i, arr) => arr.slice(0, i + 1).reduce((a, b) => a + b, 0)) : valoresDiarios;
 
+    const corGrid = 'rgba(255, 255, 255, 0.06)';
+    const corTexto = '#8392ad';
+
     chart = new Chart(ctx, {
         type: tipoGrafico,
         data: {
@@ -328,18 +339,24 @@ function renderizarGrafico(lista, tipoGrafico) {
             datasets: [{
                 label: tipoGrafico === 'line' ? 'Evolução da Banca (R$)' : 'Lucro Diário (R$)',
                 data: dadosParaGrafico, 
-                backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)',
-                borderColor: '#36a2eb',
+                backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#2dd4a7' : '#ff5c72') : 'rgba(232, 163, 61, 0.15)',
+                borderColor: '#e8a33d',
                 borderWidth: 2,
                 fill: tipoGrafico === 'line',
-                tension: 0.2
+                tension: 0.25
             }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
             layout: { padding: { top: 30 } },
-            scales: { y: { beginAtZero: true, grace: '20%' } },
-            plugins: { datalabels: { anchor: 'end', align: 'top', formatter: v => 'R$ ' + v.toFixed(2) } }
+            scales: {
+                y: { beginAtZero: true, grace: '20%', grid: { color: corGrid }, ticks: { color: corTexto } },
+                x: { grid: { color: corGrid }, ticks: { color: corTexto } }
+            },
+            plugins: {
+                legend: { labels: { color: corTexto } },
+                datalabels: { anchor: 'end', align: 'top', color: '#e7ecf4', formatter: v => 'R$ ' + v.toFixed(2) }
+            }
         }
     });
 }
@@ -358,12 +375,14 @@ function atualizarTabela(lista) {
                                        .replace(/Placar correto/ig, "Lay Goleada")
                                        .replace(/Placar/ig, "Lay Goleada");
 
+        const pnlClass = op.pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+
         tr.innerHTML = `
-            <td style="padding:10px; font-size: 13px;">${displayMercado}</td>
-            <td style="padding:10px; font-size: 13px;">${op.data}</td>
-            <td style="padding:10px; font-size: 13px; font-weight: bold; color: #1e40af;">${op.odd > 0 ? op.odd.toFixed(2) : '-'}</td>
-            <td style="padding:10px; font-size: 13px;">${op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-'}</td>
-            <td style="padding:10px; font-size: 13px; color:${op.pnl >= 0 ? 'green':'red'}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>
+            <td>${displayMercado}</td>
+            <td>${op.data}</td>
+            <td class="cell-odd">${op.odd > 0 ? op.odd.toFixed(2) : '-'}</td>
+            <td>${op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-'}</td>
+            <td class="${pnlClass}">R$ ${op.pnl.toFixed(2)}</td>
         `;
         corpo.appendChild(tr);
     });
@@ -408,23 +427,17 @@ function switchTab(activeBtnId, activeContentId) {
         const el = document.getElementById(id);
         if(el) el.style.display = 'none';
     });
-    
+
     ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-config'].forEach(id => {
         const el = document.getElementById(id);
-        if(el) {
-            el.style.background = '#e5e7eb';
-            el.style.color = '#374151';
-        }
+        if(el) el.classList.remove('active');
     });
 
     const activeContent = document.getElementById(activeContentId);
     if(activeContent) activeContent.style.display = 'block';
 
     const activeBtn = document.getElementById(activeBtnId);
-    if(activeBtn) {
-        activeBtn.style.background = '#1e40af';
-        activeBtn.style.color = 'white';
-    }
+    if(activeBtn) activeBtn.classList.add('active');
 }
 
 const btnDash = document.getElementById('btn-aba-dashboard');
