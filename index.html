@@ -37,6 +37,7 @@
             <div class="abas">
                 <button id="btn-aba-dashboard" class="tab-btn active">📊 Visão Geral</button>
                 <button id="btn-aba-ranking" class="tab-btn">🏆 Ranking</button>
+                <button id="btn-aba-mov" class="tab-btn">💸 Movimentações</button>
                 <button id="btn-aba-config" class="tab-btn">⚙️ Configurações</button>
             </div>
         </header>
@@ -98,7 +99,7 @@
                 </div>
 
                 <div class="card card--muted">
-                    <h3 title="Calculado como: Banca Total Salva - Banca Inicial Salva">Lucro Líquido Real</h3>
+                    <h3 title="Calculado como: (Banca Betfair - Banca Inicial) + Total Sacado - Total Aportado. Saques e aportes não distorcem o cálculo.">Lucro Líquido Real</h3>
                     <p id="lucro-liquido">R$ 0,00</p>
                 </div>
 
@@ -166,6 +167,70 @@
                     <p id="rank-stake">R$ 0,00</p>
                     <span id="rank-stake-desc" class="rank-desc">-</span>
                 </div>
+            </div>
+        </div>
+
+        <div id="conteudo-movimentacoes" style="display:none; margin-top: 20px;">
+            <div class="cards">
+                <div class="card card--mov-saque">
+                    <h3>Total Sacado</h3>
+                    <p id="total-sacado">R$ 0,00</p>
+                    <span class="sub">Desde o início do registro</span>
+                </div>
+                <div class="card card--mov-aporte">
+                    <h3>Total Aportado</h3>
+                    <p id="total-aportado">R$ 0,00</p>
+                    <span class="sub">Dinheiro novo colocado na banca</span>
+                </div>
+                <div class="card card--muted">
+                    <h3 title="Saques entram, aportes saem do cálculo do Lucro Líquido Real, pra não distorcerem a performance">Ajuste no Lucro Líquido</h3>
+                    <p id="ajuste-liquido">R$ 0,00</p>
+                </div>
+            </div>
+
+            <div class="form-mov-container">
+                <h3>Registrar Movimentação</h3>
+                <div class="form-mov-grid">
+                    <div class="filtro-grupo">
+                        <label for="mov-tipo">Tipo:</label>
+                        <select id="mov-tipo">
+                            <option value="saque">Saque (saiu da Betfair)</option>
+                            <option value="aporte">Aporte (entrou na Betfair)</option>
+                        </select>
+                    </div>
+                    <div class="filtro-grupo">
+                        <label for="mov-data">Data:</label>
+                        <input type="date" id="mov-data">
+                    </div>
+                    <div class="filtro-grupo">
+                        <label for="mov-valor">Valor:</label>
+                        <div class="input-money">
+                            <span>R$</span>
+                            <input type="number" id="mov-valor" step="10" placeholder="0,00">
+                        </div>
+                    </div>
+                    <div class="filtro-grupo filtro-grupo--obs">
+                        <label for="mov-obs">Observação (opcional):</label>
+                        <input type="text" id="mov-obs" placeholder="Ex: transferência para o Nubank">
+                    </div>
+                </div>
+                <button id="btn-registrar-mov" class="btn-save">➕ Registrar Movimentação</button>
+            </div>
+
+            <div class="table-container">
+                <h3>Histórico de Movimentações</h3>
+                <table id="tabela-movimentacoes">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Valor</th>
+                            <th>Observação</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpo-tabela-mov"></tbody>
+                </table>
             </div>
         </div>
 
