@@ -247,30 +247,7 @@ function aplicarFiltros() {
         elRoiStake.style.color = roiStake >= 0 ? 'green' : 'red';
     }
 																																			 
-const greens = filtradas.filter(op => op.pnl > 0);
-    const reds = filtradas.filter(op => op.pnl < 0);
-    
-    document.getElementById('relacao-green-red').innerHTML = `<span style="color: green;">G: ${greens.length}</span> | <span style="color: red;">R: ${reds.length}</span>`;
-    
-    const avgGreen = greens.length > 0 ? (greens.reduce((a, b) => a + b.pnl, 0) / greens.length) : 0;
-    const avgRed = reds.length > 0 ? Math.abs(reds.reduce((a, b) => a + b.pnl, 0) / reds.length) : 0;
-    
-    document.getElementById('media-green').innerText = `G: R$ ${avgGreen.toFixed(2)}`;
-    document.getElementById('media-red').innerText = `R: R$ ${avgRed.toFixed(2)}`;
-    
-    // Cálculo: Quantos greens para cada 1 red (Red / Green)
-    const elPayoff = document.getElementById('payoff-valor');
-    if (elPayoff) {
-        const greensParaCobrirRed = avgGreen > 0 ? (avgRed / avgGreen) : 0;
-        elPayoff.innerText = greensParaCobrirRed.toFixed(2);
-        elPayoff.style.color = greensParaCobrirRed <= 1 ? 'green' : 'red';
-    }
 
-    // ÚLTIMA LINHA DA FUNÇÃO (Mantenha esta abaixo do bloco acima)
-    atualizarTabela(filtradas);
-    renderizarGrafico(filtradas, fGrafico);
-    atualizarRanking(filtradas);
-}
     atualizarTabela(filtradas);
     renderizarGrafico(filtradas, fGrafico);
     atualizarRanking(filtradas);
