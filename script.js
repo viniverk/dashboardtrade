@@ -23,6 +23,7 @@ let usuarioAtual = null;
 
 let bancaNuvem = 1000.00; 
 let bancaInicialNuvem = 750.00; 
+let bancaNubank = 0.00;
 
 Chart.register(ChartDataLabels);
 
@@ -48,6 +49,14 @@ function setPnlClass(el, valor) {
     el.classList.add(valor >= 0 ? 'pnl-pos' : 'pnl-neg');
 }
 
+function atualizarBancaRealTotal() {
+    const bancaRealTotal = bancaNuvem + bancaNubank;
+    const el = document.getElementById('texto-banca-real-total');
+    if (el) {
+        el.innerText = `R$ ${bancaRealTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+    }
+}
+
 function atualizarLucroLiquidoReal() {
     const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
     const elLucroLiq = document.getElementById('lucro-liquido');
@@ -66,16 +75,20 @@ async function puxarBancaDoFirebase(user) {
         if (docSnap.exists()) {
             bancaNuvem = parseFloat(docSnap.data().valorBanca || 1000);
             bancaInicialNuvem = parseFloat(docSnap.data().valorBancaInicial || 750);
+            bancaNubank = parseFloat(docSnap.data().valorNubank || 0);
         } else {
             bancaNuvem = 1000;
             bancaInicialNuvem = 750;
+            bancaNubank = 0;
         }
         
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
         document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
+        document.getElementById('input-banca-nubank').value = bancaNubank.toFixed(2);
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         
         atualizarLucroLiquidoReal();
+        atualizarBancaRealTotal();
         aplicarFiltros(); // Força a atualização do KPI de Comissões após puxar a banca
     } catch (e) {
         console.error("Erro ao ler banca:", e);
@@ -90,16 +103,19 @@ async function salvarConfiguracoesNoFirebase() {
     
     bancaNuvem = parseFloat(document.getElementById('input-banca-usuario').value) || 0;
     bancaInicialNuvem = parseFloat(document.getElementById('input-banca-inicial').value) || 0;
+    bancaNubank = parseFloat(document.getElementById('input-banca-nubank').value) || 0;
     
     try {
         const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
         await setDoc(docRef, { 
             valorBanca: bancaNuvem,
-            valorBancaInicial: bancaInicialNuvem 
+            valorBancaInicial: bancaInicialNuvem,
+            valorNubank: bancaNubank
         }, { merge: true });
         
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         atualizarLucroLiquidoReal();
+        atualizarBancaRealTotal();
         aplicarFiltros(); // Atualiza a comissão na hora
         alert("Configurações salvas com sucesso!");
     } catch (e) {
