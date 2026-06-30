@@ -55,38 +55,62 @@ async function puxarBancaDoFirebase(user) {
     try {
         const docRef = doc(db, "configuracoes_banca", user.uid);
         const docSnap = await getDoc(docRef);
+        
         if (docSnap.exists()) {
             bancaNuvem = parseFloat(docSnap.data().valorBanca || 1000);
             bancaInicialNuvem = parseFloat(docSnap.data().valorBancaInicial || 750);
+        } else {
+            bancaNuvem = 1000;
+            bancaInicialNuvem = 750;
         }
+        
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
         document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        
         atualizarLucroLiquidoReal();
-        aplicarFiltros();
-    } catch (e) { console.error("Erro ao ler banca:", e); }
+        aplicarFiltros(); // Força a atualização do KPI de Comissões após puxar a banca
+    } catch (e) {
+        console.error("Erro ao ler banca:", e);
+    }
 }
 
 async function salvarConfiguracoesNoFirebase() {
-    if (!usuarioAtual) return;
+    if (!usuarioAtual) {
+        alert("Você precisa estar logado para salvar as configurações!");
+        return;
+    }
+    
     bancaNuvem = parseFloat(document.getElementById('input-banca-usuario').value) || 0;
     bancaInicialNuvem = parseFloat(document.getElementById('input-banca-inicial').value) || 0;
+    
     try {
         const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
-        await setDoc(docRef, { valorBanca: bancaNuvem, valorBancaInicial: bancaInicialNuvem }, { merge: true });
+        await setDoc(docRef, { 
+            valorBanca: bancaNuvem,
+            valorBancaInicial: bancaInicialNuvem 
+        }, { merge: true });
+        
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         atualizarLucroLiquidoReal();
-        aplicarFiltros();
-        alert("Configurações salvas!");
-    } catch (e) { console.error("Erro ao salvar:", e); }
+        aplicarFiltros(); // Atualiza a comissão na hora
+        alert("Configurações salvas com sucesso!");
+    } catch (e) {
+        console.error("Erro ao salvar configurações:", e);
+        alert("Falha ao salvar dados no Firebase.");
+    }
 }
+
+atualizarLucroLiquidoReal();
 
 async function carregarDadosDoGitHub() {
     const url = "https://raw.githubusercontent.com/viniverk/dashboardtrade/refs/heads/main/BettingPandL.csv?t=" + new Date().getTime();
+    
     try {
         const response = await fetch(url);
         const text = await response.text();
         const linhas = text.split('\n');
+        
         const cabecalhos = linhas[0].toLowerCase().replace(/\r/g, '').split(',');
         
         const idxData = cabecalhos.findIndex(c => c.includes('resolvida'));
@@ -97,41 +121,61 @@ async function carregarDadosDoGitHub() {
         const idxStake = cabecalhos.findIndex(c => c.includes('valor apostado') || c.includes('stake'));
 
         let agrupador = {};
+
         for (let i = 1; i < linhas.length; i++) {
             const lineClean = linhas[i].trim().replace(/\r/g, '');
             if (!lineClean || lineClean.toLowerCase().includes("status")) continue;
+
             const colunas = lineClean.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
+
             let mercadoNome = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim() : "Desconhecido";
             const dataHoraCompleta = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : "Sem data";
             const lucro = tratarValor(colunas[idxLucro]);
             const resp = tratarValor(colunas[idxResp]);
             const odd = tratarValor(colunas[idxOdd]);
             const stake = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
+            
             const dataLimpa = dataHoraCompleta.split(' ')[0];
             const partesData = dataLimpa.split('-');
             const ano = partesData.length === 3 ? "20" + partesData[2] : "Todos";
             const mes = partesData.length === 3 ? partesData[1].toLowerCase() : "Todos";
+
             const chave = `${mercadoNome}|${dataLimpa}`;
-            if (!agrupador[chave]) agrupador[chave] = { mercado: mercadoNome, data: dataHoraCompleta, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0, stake: 0 };
+
+            if (!agrupador[chave]) {
+                agrupador[chave] = { mercado: mercadoNome, data: dataHoraCompleta, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0, stake: 0 };
+            }
+            
             agrupador[chave].pnl += lucro;
             agrupador[chave].resp = Math.max(agrupador[chave].resp, resp);
             agrupador[chave].odd = Math.max(agrupador[chave].odd, odd);
             agrupador[chave].stake = Math.max(agrupador[chave].stake, stake);
         }
+
         todasOperacoes = Object.values(agrupador);
+        
         preencherFiltrosDinamicos();
         aplicarFiltros();
+        
     } catch (error) { console.error("Erro no processamento:", error); }
 }
 
 function preencherFiltrosDinamicos() {
     const anos = [...new Set(todasOperacoes.map(o => o.ano))].filter(a => a !== "Todos").sort();
     const datas = [...new Set(todasOperacoes.map(o => o.dataLimpa))].filter(d => d !== "Sem data").sort();
+    
     const selAno = document.getElementById('filtro-ano');
     const selData = document.getElementById('filtro-data');
-    if(selAno) { selAno.innerHTML = '<option value="TODOS">Todos</option>'; anos.forEach(a => selAno.innerHTML += `<option value="${a}">${a}</option>`); }
-    if(selData) { selData.innerHTML = '<option value="TODAS">Todas as Datas</option>'; datas.forEach(d => selData.innerHTML += `<option value="${d}">${d}</option>`); }
+    
+    if(selAno) {
+        selAno.innerHTML = '<option value="TODOS">Todos</option>';
+        anos.forEach(a => selAno.innerHTML += `<option value="${a}">${a}</option>`);
+    }
+    if(selData) {
+        selData.innerHTML = '<option value="TODAS">Todas as Datas</option>';
+        datas.forEach(d => selData.innerHTML += `<option value="${d}">${d}</option>`);
+    }
 }
 
 function aplicarFiltros() {
@@ -141,15 +185,22 @@ function aplicarFiltros() {
     const fData = document.getElementById('filtro-data').value;
     const fGrafico = document.getElementById('tipo-grafico').value;
 
-    const mesesMap = { "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun", "6": "jul", "7": "ago", "8": "set", "9": "out", "10": "nov", "11": "dez" };
+    const mesesMap = {
+        "0": "jan", "1": "fev", "2": "mar", "3": "abr", "4": "mai", "5": "jun",
+        "6": "jul", "7": "ago", "8": "set", "9": "out", "10": "nov", "11": "dez"
+    };
     const mesBuscado = mesesMap[fMes];
 
     const filtradas = todasOperacoes.filter(op => {
         const mercLower = op.mercado.toLowerCase();
-        const condEstrat = (fEstrat === 'TODAS' || (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
+        const condEstrat = (fEstrat === 'TODAS' || 
+                           (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || 
+                           (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
+                           
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
         const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
         const condData = (fData === 'TODAS' || op.dataLimpa === fData);
+        
         return condEstrat && condAno && condMes && condData;
     });
 
@@ -157,10 +208,21 @@ function aplicarFiltros() {
     document.getElementById('lucro-bruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
     document.getElementById('lucro-bruto').style.color = lucroBruto >= 0 ? 'green' : 'red';
 
+    // CÁLCULO DE COMISSÕES BETFAIR
     const lucroLiquidoReal = bancaNuvem - bancaInicialNuvem;
     const comissoes = lucroBruto - lucroLiquidoReal;
-    document.getElementById('comissoes-valor').innerText = `R$ ${comissoes.toFixed(2)}`;
-    document.getElementById('comissoes-pct').innerText = `${lucroBruto !== 0 ? ((comissoes/lucroBruto)*100).toFixed(2) : '0.00'}% do Bruto`;
+    let pctComissoes = 0;
+    if (lucroBruto > 0) {
+        pctComissoes = (comissoes / lucroBruto) * 100;
+    }
+    const elComissoesValor = document.getElementById('comissoes-valor');
+    const elComissoesPct = document.getElementById('comissoes-pct');
+    if (elComissoesValor) {
+        elComissoesValor.innerText = `R$ ${comissoes.toFixed(2)}`;
+    }
+    if (elComissoesPct) {
+        elComissoesPct.innerText = `${pctComissoes.toFixed(2)}% em relação ao Bruto`;
+    }
 
     const comResp = filtradas.filter(op => op.resp > 0);
     const totalResp = comResp.reduce((acc, op) => acc + op.resp, 0);
@@ -168,20 +230,23 @@ function aplicarFiltros() {
     document.getElementById('media-responsabilidade').innerText = `R$ ${mediaResp.toFixed(2)}`;
 
     const pctLucro = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
-    document.getElementById('pct-lucro').innerText = `${pctLucro.toFixed(2)}%`;
-    document.getElementById('pct-lucro').style.color = pctLucro >= 0 ? 'green' : 'red';
+    const elPctLucro = document.getElementById('pct-lucro');
+    if (elPctLucro) {
+        elPctLucro.innerText = `${pctLucro.toFixed(2)}%`;
+        elPctLucro.style.color = pctLucro >= 0 ? 'green' : 'red';
+    }
 
     const roiStake = mediaResp > 0 ? (lucroBruto / mediaResp) * 100 : 0;
     const unidades = mediaResp > 0 ? (lucroBruto / mediaResp).toFixed(2) : 0;
-    document.getElementById('roi-stake').innerText = `${roiStake.toFixed(2)}% (${unidades > 0 ? '+' : ''}${Math.abs(unidades)} und)`;
-    document.getElementById('roi-stake').style.color = roiStake >= 0 ? 'green' : 'red';
-
-    // CÁLCULO GREEN/RED INTEGRADO
-    const greens = filtradas.filter(op => op.pnl > 0);
-    const reds = filtradas.filter(op => op.pnl < 0);
-    document.getElementById('relacao-green-red').innerHTML = `<span style="color: green;">G: ${greens.length}</span> | <span style="color: red;">R: ${reds.length}</span>`;
-    document.getElementById('media-green').innerText = `G: R$ ${(greens.length > 0 ? greens.reduce((a,b)=>a+b.pnl,0)/greens.length : 0).toFixed(2)}`;
-    document.getElementById('media-red').innerText = `R: R$ ${(reds.length > 0 ? reds.reduce((a,b)=>a+b.pnl,0)/reds.length : 0).toFixed(2)}`;
+																																	 
+    const elRoiStake = document.getElementById('roi-stake');
+    if (elRoiStake) {
+        const roiDisplay = Math.min(Math.abs(roiStake), 9999); 
+        const sinal = roiStake > 0 ? '+' : (roiStake < 0 ? '-' : '');
+        elRoiStake.innerText = `${sinal}${roiDisplay.toFixed(2)}% (${sinal}${Math.abs(unidades)} und)`;
+        elRoiStake.style.color = roiStake >= 0 ? 'green' : 'red';
+    }
+																																			 
 
     atualizarTabela(filtradas);
     renderizarGrafico(filtradas, fGrafico);
@@ -189,64 +254,212 @@ function aplicarFiltros() {
 }
 
 function atualizarRanking(lista) {
-    if (!lista || lista.length === 0) return;
-    let maxGreen = lista.reduce((p, c) => c.pnl > p.pnl ? c : p, lista[0]);
-    let maxRed = lista.reduce((p, c) => c.pnl < p.pnl ? c : p, lista[0]);
-    let maxResp = lista.reduce((p, c) => c.resp > p.resp ? c : p, lista[0]);
-    let maxOdd = lista.reduce((p, c) => c.odd > p.odd ? c : p, lista[0]);
-    let maxStake = lista.reduce((p, c) => c.stake > p.stake ? c : p, lista[0]);
-    const formatDesc = (op) => `${op.mercado.replace(/Resultado.*/ig, "Match Odds").replace(/Placar.*/ig, "Lay Goleada")}\nData: ${op.dataLimpa}`;
+    if (!lista || lista.length === 0) {
+        ['green', 'red', 'resp', 'odd', 'stake'].forEach(id => {
+            const el = document.getElementById(`rank-${id}`);
+            const elDesc = document.getElementById(`rank-${id}-desc`);
+            if(el) el.innerText = id === 'odd' ? '0.00' : 'R$ 0,00';
+            if(elDesc) elDesc.innerText = '-';
+        });
+        return;
+    }
+
+    let maxGreen = lista[0], maxRed = lista[0];
+    let maxResp = lista[0], maxOdd = lista[0], maxStake = lista[0];
+
+    lista.forEach(op => {
+        if (op.pnl > maxGreen.pnl) maxGreen = op;
+        if (op.pnl < maxRed.pnl) maxRed = op;
+        if (op.resp > maxResp.resp) maxResp = op;
+        if (op.odd > maxOdd.odd) maxOdd = op;
+        if (op.stake > maxStake.stake) maxStake = op;
+    });
+
+    const formatDesc = (op) => {
+        let m = op.mercado;
+        m = m.replace(/Resultado da partida/ig, "Match Odds").replace(/Resultado/ig, "Match Odds").replace(/Placar correto/ig, "Lay Goleada").replace(/Placar/ig, "Lay Goleada");
+        return `${m}\nData: ${op.dataLimpa}`;
+    };
+
     document.getElementById('rank-green').innerText = `R$ ${maxGreen.pnl.toFixed(2)}`;
     document.getElementById('rank-green-desc').innerText = formatDesc(maxGreen);
+
     document.getElementById('rank-red').innerText = `R$ ${maxRed.pnl.toFixed(2)}`;
     document.getElementById('rank-red-desc').innerText = formatDesc(maxRed);
+
     document.getElementById('rank-resp').innerText = `R$ ${maxResp.resp.toFixed(2)}`;
     document.getElementById('rank-resp-desc').innerText = formatDesc(maxResp);
+
     document.getElementById('rank-odd').innerText = maxOdd.odd.toFixed(2);
     document.getElementById('rank-odd-desc').innerText = formatDesc(maxOdd);
+
     document.getElementById('rank-stake').innerText = `R$ ${maxStake.stake.toFixed(2)}`;
     document.getElementById('rank-stake-desc').innerText = formatDesc(maxStake);
 }
 
 function renderizarGrafico(lista, tipoGrafico) {
     const canvas = document.getElementById('meuGrafico');
-    if (!canvas) return;
+    if (!canvas) return; 
+    const ctx = canvas.getContext('2d');
+    
     if (chart) chart.destroy();
+
     let agrupadoPorData = {};
-    lista.forEach(o => { if(!agrupadoPorData[o.dataLimpa]) agrupadoPorData[o.dataLimpa] = 0; agrupadoPorData[o.dataLimpa] += o.pnl; });
-    const labels = Object.keys(agrupadoPorData).sort((a, b) => new Date("20" + a.split('-')[2], monthOrder[a.split('-')[1].toLowerCase()], a.split('-')[0]) - new Date("20" + b.split('-')[2], monthOrder[b.split('-')[1].toLowerCase()], b.split('-')[0]));
-    const data = labels.map(l => agrupadoPorData[l]);
-    chart = new Chart(canvas.getContext('2d'), { type: tipoGrafico, data: { labels: labels, datasets: [{ label: 'PnL', data: data, backgroundColor: '#36a2eb' }] }, options: { responsive: true, maintainAspectRatio: false } });
+    lista.forEach(o => {
+        if(!agrupadoPorData[o.dataLimpa]) agrupadoPorData[o.dataLimpa] = 0;
+        agrupadoPorData[o.dataLimpa] += o.pnl;
+    });
+
+    const labels = Object.keys(agrupadoPorData).sort((a, b) => {
+        const numMesA = monthOrder[a.split('-')[1].toLowerCase()];
+        const numMesB = monthOrder[b.split('-')[1].toLowerCase()];
+        const valA = new Date("20" + a.split('-')[2], numMesA, a.split('-')[0]);
+        const valB = new Date("20" + b.split('-')[2], numMesB, b.split('-')[0]);
+        return valA - valB;
+    });
+    
+    const valoresDiarios = labels.map(l => agrupadoPorData[l]);
+    let dadosParaGrafico = tipoGrafico === 'line' ? valoresDiarios.map((v, i, arr) => arr.slice(0, i + 1).reduce((a, b) => a + b, 0)) : valoresDiarios;
+
+    chart = new Chart(ctx, {
+        type: tipoGrafico,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: tipoGrafico === 'line' ? 'Evolução da Banca (R$)' : 'Lucro Diário (R$)',
+                data: dadosParaGrafico, 
+                backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#4bc0c0' : '#ff6384') : 'rgba(54, 162, 235, 0.2)',
+                borderColor: '#36a2eb',
+                borderWidth: 2,
+                fill: tipoGrafico === 'line',
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 30 } },
+            scales: { y: { beginAtZero: true, grace: '20%' } },
+            plugins: { datalabels: { anchor: 'end', align: 'top', formatter: v => 'R$ ' + v.toFixed(2) } }
+        }
+    });
 }
 
 function atualizarTabela(lista) {
     const corpo = document.getElementById('corpo-tabela');
     if(!corpo) return;
     corpo.innerHTML = "";
+    
     lista.forEach(op => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td style="padding:10px;">${op.mercado.replace(/Resultado.*/ig, "Match Odds").replace(/Placar.*/ig, "Lay Goleada")}</td><td>${op.data}</td><td>${op.odd.toFixed(2)}</td><td>R$ ${op.resp.toFixed(2)}</td><td style="color:${op.pnl>=0?'green':'red'}">R$ ${op.pnl.toFixed(2)}</td>`;
+        
+        let displayMercado = op.mercado;
+        displayMercado = displayMercado.replace(/Resultado da partida/ig, "Match Odds")
+                                       .replace(/Resultado/ig, "Match Odds")
+                                       .replace(/Placar correto/ig, "Lay Goleada")
+                                       .replace(/Placar/ig, "Lay Goleada");
+
+        tr.innerHTML = `
+            <td style="padding:10px; font-size: 13px;">${displayMercado}</td>
+            <td style="padding:10px; font-size: 13px;">${op.data}</td>
+            <td style="padding:10px; font-size: 13px; font-weight: bold; color: #1e40af;">${op.odd > 0 ? op.odd.toFixed(2) : '-'}</td>
+            <td style="padding:10px; font-size: 13px;">${op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-'}</td>
+            <td style="padding:10px; font-size: 13px; color:${op.pnl >= 0 ? 'green':'red'}; font-weight:bold;">R$ ${op.pnl.toFixed(2)}</td>
+        `;
         corpo.appendChild(tr);
     });
 }
 
 window.ordenarTabela = (coluna) => {
-    sortDirection *= -1;
-    todasOperacoes.sort((a, b) => (typeof a[coluna] === 'string' ? a[coluna].localeCompare(b[coluna]) : a[coluna] - b[coluna]) * sortDirection);
-    aplicarFiltros();
+    sortDirection *= -1; 
+    
+    todasOperacoes.sort((a, b) => {
+        let valA = a[coluna];
+        let valB = b[coluna];
+        
+        if (coluna === 'data') {
+            const getTimestamp = (dStr) => {
+                if (!dStr || dStr === 'Sem data') return 0;
+                const parts = dStr.split(/[\s-:]+/);
+                if (parts.length < 3) return 0;
+                const dia = parseInt(parts[0]);
+                const mes = monthOrder[parts[1].toLowerCase()] || 0;
+                const ano = parseInt(parts[2]) + 2000;
+                const hr = parts[3] ? parseInt(parts[3]) : 0;
+                const min = parts[4] ? parseInt(parts[4]) : 0;
+                const sec = parts[5] ? parseInt(parts[5]) : 0;
+                return new Date(ano, mes, dia, hr, min, sec).getTime();
+            };
+            valA = getTimestamp(valA);
+            valB = getTimestamp(valB);
+        }
+
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return valA.localeCompare(valB) * sortDirection;
+        }
+        
+        return (valA - valB) * sortDirection;
+    });
+    
+    aplicarFiltros(); 
 };
 
 function switchTab(activeBtnId, activeContentId) {
-    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-configuracoes'].forEach(id => document.getElementById(id).style.display = 'none');
-    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-config'].forEach(id => { const el = document.getElementById(id); el.style.background = '#e5e7eb'; el.style.color = '#374151'; });
-    document.getElementById(activeContentId).style.display = 'block';
-    const activeBtn = document.getElementById(activeBtnId); activeBtn.style.background = '#1e40af'; activeBtn.style.color = 'white';
+    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-configuracoes'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = 'none';
+    });
+    
+    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-config'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) {
+            el.style.background = '#e5e7eb';
+            el.style.color = '#374151';
+        }
+    });
+
+    const activeContent = document.getElementById(activeContentId);
+    if(activeContent) activeContent.style.display = 'block';
+
+    const activeBtn = document.getElementById(activeBtnId);
+    if(activeBtn) {
+        activeBtn.style.background = '#1e40af';
+        activeBtn.style.color = 'white';
+    }
 }
 
-document.getElementById('btn-aba-dashboard')?.addEventListener('click', () => switchTab('btn-aba-dashboard', 'conteudo-dashboard'));
-document.getElementById('btn-aba-ranking')?.addEventListener('click', () => switchTab('btn-aba-ranking', 'conteudo-ranking'));
-document.getElementById('btn-aba-config')?.addEventListener('click', () => switchTab('btn-aba-config', 'conteudo-configuracoes'));
-['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => document.getElementById(id)?.addEventListener('change', aplicarFiltros));
-document.getElementById('btn-salvar-config')?.addEventListener('click', salvarConfiguracoesNoFirebase);
-document.getElementById('btn-login')?.addEventListener('click', () => signInWithPopup(auth, provider));
-onAuthStateChanged(auth, (user) => { if (user) { usuarioAtual = user; document.getElementById('auth-container').style.display = 'none'; document.getElementById('dashboard').style.display = 'block'; puxarBancaDoFirebase(usuarioAtual); carregarDadosDoGitHub(); } });
+const btnDash = document.getElementById('btn-aba-dashboard');
+if(btnDash) btnDash.addEventListener('click', () => switchTab('btn-aba-dashboard', 'conteudo-dashboard'));
+
+const btnRank = document.getElementById('btn-aba-ranking');
+if(btnRank) btnRank.addEventListener('click', () => switchTab('btn-aba-ranking', 'conteudo-ranking'));
+
+const btnConfig = document.getElementById('btn-aba-config');
+if(btnConfig) btnConfig.addEventListener('click', () => switchTab('btn-aba-config', 'conteudo-configuracoes'));
+
+['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('change', aplicarFiltros);
+});
+
+const btnSalvarConfig = document.getElementById('btn-salvar-config');
+if(btnSalvarConfig) btnSalvarConfig.addEventListener('click', salvarConfiguracoesNoFirebase);
+
+document.getElementById('btn-login').addEventListener('click', () => {
+    signInWithPopup(auth, provider).then((result) => {
+        usuarioAtual = result.user;
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        puxarBancaDoFirebase(usuarioAtual);
+        carregarDadosDoGitHub();
+    }).catch(error => console.error("Erro no login:", error));
+});
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        usuarioAtual = user;
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        puxarBancaDoFirebase(usuarioAtual);
+        carregarDadosDoGitHub();
+    }
+});
