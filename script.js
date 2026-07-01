@@ -24,9 +24,11 @@ let usuarioAtual = null;
 let bancaNuvem = 1000.00; 
 let bancaInicialNuvem = 750.00; 
 let bancaNubank = 0.00;
+let metaMensal = 0;
 let movimentacoes = [];
 let totalSaques = 0;
 let totalAportes = 0;
+let chartMensal;
 
 Chart.register(ChartDataLabels);
 
@@ -188,7 +190,177 @@ async function excluirMovimentacao(id) {
     }
 }
 
-async function puxarBancaDoFirebase(user) {
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function atualizarMetaMensal(operacoesFiltradas) {
+    const card = document.getElementById('card-meta');
+    const elLucro = document.getElementById('meta-lucro-mes');
+    const elAlvo = document.getElementById('meta-valor-alvo');
+    const elDesc = document.getElementById('meta-descricao');
+    const barra = document.getElementById('meta-barra-progresso');
+    const elPct = document.getElementById('meta-pct-texto');
+    const elFalta = document.getElementById('meta-faltando');
+    if (!card) return;
+
+    // Calcula lucro do mês atual usando TODAS as operações (sem filtro de estratégia)
+    const agora = new Date();
+    const mesAtual = agora.getMonth();
+    const anoAtual = agora.getFullYear();
+
+    const lucroDesseMes = todasOperacoes.filter(op => {
+        const partes = op.dataLimpa.split('-');
+        if (partes.length < 3) return false;
+        const mesOp = monthOrder[partes[1].toLowerCase()];
+        const anoOp = parseInt('20' + partes[2]);
+        return mesOp === mesAtual && anoOp === anoAtual;
+    }).reduce((acc, op) => acc + op.pnl, 0);
+
+    const nomeMes = MESES_PT[mesAtual];
+    if (elDesc) elDesc.innerText = `${nomeMes} ${anoAtual} · todas as estratégias`;
+    if (elLucro) {
+        elLucro.innerText = `R$ ${lucroDesseMes.toFixed(2)}`;
+        elLucro.style.color = lucroDesseMes >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+
+    if (metaMensal <= 0) {
+        if (elAlvo) elAlvo.innerText = '—';
+        if (barra) barra.style.width = '0%';
+        if (elPct) elPct.innerText = 'Sem meta definida';
+        if (elFalta) elFalta.innerText = 'Configure em ⚙️ Configurações';
+        card.classList.remove('meta-atingida', 'meta-perto');
+        return;
+    }
+
+    if (elAlvo) elAlvo.innerText = `R$ ${metaMensal.toFixed(2)}`;
+
+    const pct = Math.min((lucroDesseMes / metaMensal) * 100, 100);
+    const pctReal = (lucroDesseMes / metaMensal) * 100;
+
+    if (barra) {
+        barra.style.width = `${Math.max(pct, 0)}%`;
+        barra.classList.remove('fill-verde', 'fill-amarelo', 'fill-vermelho');
+        if (pctReal >= 100) barra.classList.add('fill-verde');
+        else if (pctReal >= 70) barra.classList.add('fill-amarelo');
+        else barra.classList.add('fill-vermelho');
+    }
+
+    if (elPct) elPct.innerText = `${pctReal.toFixed(1)}% da meta`;
+
+    card.classList.remove('meta-atingida', 'meta-perto');
+    if (pctReal >= 100) {
+        card.classList.add('meta-atingida');
+        const excedente = lucroDesseMes - metaMensal;
+        if (elFalta) elFalta.innerText = `✅ Meta atingida! R$ ${excedente.toFixed(2)} acima`;
+    } else if (pctReal >= 70) {
+        card.classList.add('meta-perto');
+        const falta = metaMensal - lucroDesseMes;
+        if (elFalta) elFalta.innerText = `Faltam R$ ${falta.toFixed(2)} para a meta`;
+    } else {
+        const falta = metaMensal - lucroDesseMes;
+        if (elFalta) elFalta.innerText = `Faltam R$ ${falta.toFixed(2)} para a meta`;
+    }
+}
+
+function atualizarResumoMensal(operacoesFiltradas) {
+    // Agrupa as operações filtradas por "ano-mês"
+    const porMes = {};
+    operacoesFiltradas.forEach(op => {
+        const partes = op.dataLimpa.split('-');
+        if (partes.length < 3) return;
+        const mes = monthOrder[partes[1].toLowerCase()];
+        const ano = parseInt('20' + partes[2]);
+        const chave = `${ano}-${String(mes).padStart(2,'0')}`;
+        if (!porMes[chave]) porMes[chave] = { ano, mes, lucro: 0, total: 0, greens: 0, reds: 0 };
+        porMes[chave].lucro += op.pnl;
+        porMes[chave].total++;
+        if (op.pnl >= 0) porMes[chave].greens++;
+        else porMes[chave].reds++;
+    });
+
+    const mesesOrdenados = Object.keys(porMes).sort();
+    const dados = mesesOrdenados.map(k => porMes[k]);
+
+    // Lucro máximo absoluto pra escalar as barrinhas
+    const maxAbsLucro = Math.max(...dados.map(d => Math.abs(d.lucro)), 1);
+
+    // --- Tabela ---
+    const corpo = document.getElementById('corpo-resumo-mensal');
+    if (corpo) {
+        corpo.innerHTML = '';
+        if (dados.length === 0) {
+            corpo.innerHTML = `<tr><td colspan="7" style="color:var(--text-faint);padding:14px 10px;">Nenhuma operação encontrada com os filtros atuais.</td></tr>`;
+        } else {
+            dados.reverse().forEach(d => {
+                const nomeMes = MESES_PT[d.mes];
+                const winRate = d.total > 0 ? ((d.greens / d.total) * 100).toFixed(1) : '0.0';
+                const corLucro = d.lucro >= 0 ? 'var(--green)' : 'var(--red)';
+                const larguraBarra = ((Math.abs(d.lucro) / maxAbsLucro) * 80).toFixed(1);
+                const corBarra = d.lucro >= 0 ? 'var(--green)' : 'var(--red)';
+
+                let vsMeta = '<span class="vs-meta-badge vs-meta-nd">—</span>';
+                if (metaMensal > 0) {
+                    const ok = d.lucro >= metaMensal;
+                    const pctMeta = ((d.lucro / metaMensal) * 100).toFixed(0);
+                    vsMeta = ok
+                        ? `<span class="vs-meta-badge vs-meta-ok">✅ ${pctMeta}%</span>`
+                        : `<span class="vs-meta-badge vs-meta-nok">${pctMeta}%</span>`;
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${nomeMes} ${d.ano}</td>
+                    <td>${d.total}</td>
+                    <td class="pnl-pos">${d.greens}</td>
+                    <td class="pnl-neg">${d.reds}</td>
+                    <td>${winRate}%</td>
+                    <td>
+                        <div class="barra-mes">
+                            <div class="barra-mes-fill" style="width:${larguraBarra}px; background:${corBarra};"></div>
+                            <span style="color:${corLucro}; font-weight:600;">R$ ${d.lucro.toFixed(2)}</span>
+                        </div>
+                    </td>
+                    <td>${vsMeta}</td>
+                `;
+                corpo.appendChild(tr);
+            });
+        }
+    }
+
+    // --- Gráfico ---
+    const canvasMensal = document.getElementById('graficoMensal');
+    if (!canvasMensal) return;
+    if (chartMensal) chartMensal.destroy();
+
+    const labelsGrafico = dados.map(d => `${MESES_PT[d.mes].slice(0,3)} ${d.ano}`).reverse();
+    const valoresGrafico = dados.map(d => d.lucro).reverse();
+
+    chartMensal = new Chart(canvasMensal.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: labelsGrafico,
+            datasets: [{
+                label: 'Lucro por Mês (R$)',
+                data: valoresGrafico,
+                backgroundColor: valoresGrafico.map(v => v >= 0 ? '#2dd4a7' : '#ff5c72'),
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 30 } },
+            scales: {
+                y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#8392ad' } },
+                x: { grid: { display: false }, ticks: { color: '#8392ad' } }
+            },
+            plugins: {
+                legend: { display: false },
+                datalabels: { anchor: 'end', align: 'top', color: '#e7ecf4', font: { size: 11 }, formatter: v => 'R$ ' + v.toFixed(0) }
+            }
+        }
+    });
+}
+
+
     if (!user) return;
     try {
         const docRef = doc(db, "configuracoes_banca", user.uid);
@@ -198,15 +370,18 @@ async function puxarBancaDoFirebase(user) {
             bancaNuvem = parseFloat(docSnap.data().valorBanca || 1000);
             bancaInicialNuvem = parseFloat(docSnap.data().valorBancaInicial || 750);
             bancaNubank = parseFloat(docSnap.data().valorNubank || 0);
+            metaMensal = parseFloat(docSnap.data().metaMensal || 0);
         } else {
             bancaNuvem = 1000;
             bancaInicialNuvem = 750;
             bancaNubank = 0;
+            metaMensal = 0;
         }
         
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
         document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
         document.getElementById('input-banca-nubank').value = bancaNubank.toFixed(2);
+        document.getElementById('input-meta-mensal').value = metaMensal.toFixed(2);
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         
         atualizarLucroLiquidoReal();
@@ -226,13 +401,15 @@ async function salvarConfiguracoesNoFirebase() {
     bancaNuvem = parseFloat(document.getElementById('input-banca-usuario').value) || 0;
     bancaInicialNuvem = parseFloat(document.getElementById('input-banca-inicial').value) || 0;
     bancaNubank = parseFloat(document.getElementById('input-banca-nubank').value) || 0;
+    metaMensal = parseFloat(document.getElementById('input-meta-mensal').value) || 0;
     
     try {
         const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
         await setDoc(docRef, { 
             valorBanca: bancaNuvem,
             valorBancaInicial: bancaInicialNuvem,
-            valorNubank: bancaNubank
+            valorNubank: bancaNubank,
+            metaMensal: metaMensal
         }, { merge: true });
         
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
@@ -395,6 +572,8 @@ function aplicarFiltros() {
     atualizarTabela(filtradas);
     renderizarGrafico(filtradas, fGrafico);
     atualizarRanking(filtradas);
+    atualizarMetaMensal(filtradas);
+    atualizarResumoMensal(filtradas);
 }
 
 function atualizarRanking(lista) {
@@ -598,6 +777,24 @@ if(btnConfig) btnConfig.addEventListener('click', () => switchTab('btn-aba-confi
 
 const btnSalvarConfig = document.getElementById('btn-salvar-config');
 if(btnSalvarConfig) btnSalvarConfig.addEventListener('click', salvarConfiguracoesNoFirebase);
+
+const btnResumoTabela = document.getElementById('btn-resumo-tabela');
+const btnResumoGrafico = document.getElementById('btn-resumo-grafico');
+if (btnResumoTabela && btnResumoGrafico) {
+    btnResumoTabela.addEventListener('click', () => {
+        document.getElementById('resumo-tabela-wrapper').style.display = '';
+        document.getElementById('resumo-grafico-wrapper').style.display = 'none';
+        btnResumoTabela.classList.add('active');
+        btnResumoGrafico.classList.remove('active');
+    });
+    btnResumoGrafico.addEventListener('click', () => {
+        document.getElementById('resumo-tabela-wrapper').style.display = 'none';
+        document.getElementById('resumo-grafico-wrapper').style.display = '';
+        btnResumoGrafico.classList.add('active');
+        btnResumoTabela.classList.remove('active');
+        if (chartMensal) chartMensal.resize();
+    });
+}
 
 const inputMovData = document.getElementById('mov-data');
 if (inputMovData) inputMovData.value = new Date().toISOString().split('T')[0];
