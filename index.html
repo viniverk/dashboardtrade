@@ -27,17 +27,23 @@
                 <img src="logo.png" alt="DeFF Trade" class="header-logo">
                 <div>
                     <h1>DeFF Trade <span class="header-subtitle">— Dashboard de Trading Esportivo</span></h1>
-                    <div class="banca-resumo">
-                        <p class="banca-label">
-                            Banca Betfair: <span id="texto-banca-superior">R$ 0,00</span>
-                        </p>
-                        <p class="banca-label banca-label--real">
-                            Banca Real Total: <span id="texto-banca-real-total">R$ 0,00</span>
-                        </p>
-                    </div>
                 </div>
             </div>
 
+            <div class="header-bancas">
+                <div class="header-banca-item">
+                    <span class="header-banca-label">Banca Betfair</span>
+                    <span id="texto-banca-superior" class="header-banca-valor">R$ 0,00</span>
+                </div>
+                <div class="header-banca-divider"></div>
+                <div class="header-banca-item">
+                    <span class="header-banca-label">Banca Real Total</span>
+                    <span id="texto-banca-real-total" class="header-banca-valor header-banca-valor--real">R$ 0,00</span>
+                </div>
+            </div>
+        </header>
+
+        <nav class="abas-nav">
             <div class="abas">
                 <button id="btn-aba-dashboard" class="tab-btn active">📊 Visão Geral</button>
                 <button id="btn-aba-ranking" class="tab-btn">🏆 Ranking</button>
@@ -45,7 +51,7 @@
                 <button id="btn-aba-mov" class="tab-btn">💸 Movimentações</button>
                 <button id="btn-aba-config" class="tab-btn">⚙️ Configurações</button>
             </div>
-        </header>
+        </nav>
 
         <div class="filtros-container">
             <div class="filtro-grupo">
