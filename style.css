@@ -145,9 +145,44 @@ h1, h2, h3 {
   margin-bottom: 20px;
 }
 
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-logo {
+  height: 54px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(45, 212, 167, 0.18));
+}
+
 .dashboard-header h1 {
-  font-size: 22px;
+  font-size: 20px;
   color: var(--text-primary);
+}
+
+.header-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-faint);
+  letter-spacing: 0.01em;
+}
+
+.login-logo {
+  width: 90px;
+  height: auto;
+  margin: 0 auto 16px;
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(45, 212, 167, 0.2));
+}
+
+@media (max-width: 720px) {
+  .header-logo { height: 42px; }
+  .dashboard-header h1 { font-size: 17px; }
+  .header-subtitle { display: none; }
 }
 
 .banca-resumo {
