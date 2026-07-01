@@ -360,7 +360,7 @@ function atualizarResumoMensal(operacoesFiltradas) {
     });
 }
 
-
+async function puxarBancaDoFirebase(user) {
     if (!user) return;
     try {
         const docRef = doc(db, "configuracoes_banca", user.uid);
