@@ -526,8 +526,196 @@ tbody tr:last-child td { border-bottom: none; }
 .btn-save:active { transform: translateY(1px); }
 
 /* =========================================================
-   Movimentações
+   Meta Mensal
    ========================================================= */
+
+.card--meta {
+  margin-top: 18px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 18px 20px 14px;
+  transition: border-color 0.3s ease;
+}
+
+.card--meta.meta-atingida {
+  border-color: var(--green);
+  background: linear-gradient(135deg, var(--bg-surface) 60%, rgba(45, 212, 167, 0.06));
+}
+
+.card--meta.meta-perto {
+  border-color: var(--accent-amber);
+}
+
+.meta-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.card--meta h3 {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.meta-desc {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin: 0;
+  font-family: var(--font-body);
+}
+
+.meta-valores {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+}
+
+.meta-lucro {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.meta-separador { color: var(--text-faint); font-size: 18px; }
+
+.meta-alvo {
+  font-size: 16px;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.meta-barra-bg {
+  height: 8px;
+  background: var(--bg-surface-alt);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.meta-barra-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-amber);
+  transition: width 0.5s ease, background-color 0.3s ease;
+  max-width: 100%;
+}
+
+.meta-barra-fill.fill-verde { background: var(--green); }
+.meta-barra-fill.fill-amarelo { background: var(--accent-amber); }
+.meta-barra-fill.fill-vermelho { background: var(--red); }
+
+.meta-rodape {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-size: 12px;
+}
+
+.meta-pct { color: var(--text-muted); font-family: var(--font-mono); }
+.meta-falta { color: var(--text-faint); }
+
+/* =========================================================
+   Resumo por Mês
+   ========================================================= */
+
+.section-resumo-mensal {
+  margin-top: 18px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow-x: auto;
+}
+
+.resumo-mensal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.resumo-mensal-header h3 {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.resumo-mensal-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+}
+
+.toggle-btn {
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.toggle-btn.active {
+  background: var(--accent-amber);
+  color: #1a1206;
+}
+
+#tabela-resumo-mensal {
+  min-width: 560px;
+}
+
+.barra-mes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.barra-mes-fill {
+  height: 6px;
+  border-radius: 999px;
+  min-width: 4px;
+  transition: width 0.4s ease;
+}
+
+.vs-meta-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.vs-meta-ok { background: var(--green-soft); color: var(--green); }
+.vs-meta-nok { background: var(--red-soft); color: var(--red); }
+.vs-meta-nd { background: var(--bg-surface-alt); color: var(--text-faint); }
+
+/* =========================================================
+   Config: card de meta
+   ========================================================= */
+
+.card--config-meta {
+  background: rgba(232, 163, 61, 0.08);
+  border: 1px solid rgba(232, 163, 61, 0.25);
+}
+
+.card--config-meta h3 { color: var(--accent-amber); }
+.card--config-meta .input-money span { color: var(--accent-amber); }
 
 .card--mov-saque {
   background: var(--red-soft);
