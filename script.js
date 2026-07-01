@@ -864,6 +864,11 @@ function switchTab(activeBtnId, activeContentId) {
 
     const activeBtn = document.getElementById(activeBtnId);
     if(activeBtn) activeBtn.classList.add('active');
+
+    // Mostrar filtros só nas abas que fazem uso deles
+    const abasComFiltro = ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-operacoes'];
+    const filtros = document.querySelector('.filtros-container');
+    if (filtros) filtros.style.display = abasComFiltro.includes(activeBtnId) ? 'flex' : 'none';
 }
 
 const btnDash = document.getElementById('btn-aba-dashboard');
