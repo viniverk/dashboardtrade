@@ -336,6 +336,54 @@
             <div>
                 <button id="btn-salvar-config" class="btn-save">💾 Salvar Configurações</button>
             </div>
+
+            <!-- Metas por mês -->
+            <div class="form-mov-container" style="margin-top: 20px;">
+                <h3>🎯 Metas por Mês</h3>
+                <p class="hint" style="margin-bottom: 14px;">Defina uma meta diferente para cada mês. Salva independentemente das configurações acima.</p>
+                <div class="form-mov-grid">
+                    <div class="filtro-grupo">
+                        <label for="meta-mes-sel">Mês:</label>
+                        <select id="meta-mes-sel">
+                            <option value="2026-01">Janeiro 2026</option>
+                            <option value="2026-02">Fevereiro 2026</option>
+                            <option value="2026-03">Março 2026</option>
+                            <option value="2026-04">Abril 2026</option>
+                            <option value="2026-05">Maio 2026</option>
+                            <option value="2026-06">Junho 2026</option>
+                            <option value="2026-07">Julho 2026</option>
+                            <option value="2026-08">Agosto 2026</option>
+                            <option value="2026-09">Setembro 2026</option>
+                            <option value="2026-10">Outubro 2026</option>
+                            <option value="2026-11">Novembro 2026</option>
+                            <option value="2026-12">Dezembro 2026</option>
+                        </select>
+                    </div>
+                    <div class="filtro-grupo">
+                        <label for="meta-mes-valor">Meta (R$):</label>
+                        <div class="input-money">
+                            <span>R$</span>
+                            <input type="number" id="meta-mes-valor" step="50" placeholder="0,00">
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-salvar-meta-mes" class="btn-save">💾 Salvar Meta do Mês</button>
+
+                <div class="table-container" style="margin-top: 18px; padding: 0; box-shadow: none; border: none; background: transparent;">
+                    <table id="tabela-metas-mensais">
+                        <thead>
+                            <tr>
+                                <th>Mês</th>
+                                <th>Meta</th>
+                                <th>Lucro Real</th>
+                                <th>% Atingido</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpo-metas-mensais"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
     </div>
