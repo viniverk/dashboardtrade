@@ -516,7 +516,7 @@ function aplicarFiltros() {
     const filtradas = todasOperacoes.filter(op => {
         const mercLower = op.mercado.toLowerCase();
         const condEstrat = (fEstrat === 'TODAS' || 
-                           (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades'))) || 
+                           (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades') || mercLower.includes('prolongamento'))) || 
                            (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
                            
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
@@ -600,7 +600,7 @@ function atualizarRanking(lista) {
 
     const formatDesc = (op) => {
         let m = op.mercado;
-        m = m.replace(/Resultado da partida/ig, "Match Odds").replace(/Resultado/ig, "Match Odds").replace(/Placar correto/ig, "Lay Goleada").replace(/Placar/ig, "Lay Goleada");
+        m = m.replace(/Resultado da partida/ig, "Match Odds").replace(/Resultado/ig, "Match Odds").replace(/Placar correto/ig, "Lay Goleada").replace(/Placar/ig, "Lay Goleada").replace(/Prolongamento/ig, "Match Odds (Prol.)");
         return `${m}\nData: ${op.dataLimpa}`;
     };
 
@@ -688,7 +688,8 @@ function atualizarTabela(lista) {
         displayMercado = displayMercado.replace(/Resultado da partida/ig, "Match Odds")
                                        .replace(/Resultado/ig, "Match Odds")
                                        .replace(/Placar correto/ig, "Lay Goleada")
-                                       .replace(/Placar/ig, "Lay Goleada");
+                                       .replace(/Placar/ig, "Lay Goleada")
+                                       .replace(/Prolongamento/ig, "Match Odds (Prol.)");
 
         const pnlClass = op.pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
 
