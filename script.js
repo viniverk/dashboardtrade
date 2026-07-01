@@ -738,12 +738,12 @@ window.ordenarTabela = (coluna) => {
 };
 
 function switchTab(activeBtnId, activeContentId) {
-    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-movimentacoes', 'conteudo-configuracoes'].forEach(id => {
+    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-operacoes', 'conteudo-movimentacoes', 'conteudo-configuracoes'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = 'none';
     });
 
-    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-mov', 'btn-aba-config'].forEach(id => {
+    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-operacoes', 'btn-aba-mov', 'btn-aba-config'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.classList.remove('active');
     });
@@ -760,6 +760,9 @@ if(btnDash) btnDash.addEventListener('click', () => switchTab('btn-aba-dashboard
 
 const btnRank = document.getElementById('btn-aba-ranking');
 if(btnRank) btnRank.addEventListener('click', () => switchTab('btn-aba-ranking', 'conteudo-ranking'));
+
+const btnOps = document.getElementById('btn-aba-operacoes');
+if(btnOps) btnOps.addEventListener('click', () => switchTab('btn-aba-operacoes', 'conteudo-operacoes'));
 
 const btnMov = document.getElementById('btn-aba-mov');
 if(btnMov) btnMov.addEventListener('click', () => switchTab('btn-aba-mov', 'conteudo-movimentacoes'));
