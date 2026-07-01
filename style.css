@@ -152,7 +152,7 @@ h1, h2, h3 {
 }
 
 .header-logo {
-  height: 72px;
+  height: 144px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
