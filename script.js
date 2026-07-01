@@ -24,7 +24,8 @@ let usuarioAtual = null;
 let bancaNuvem = 1000.00; 
 let bancaInicialNuvem = 750.00; 
 let bancaNubank = 0.00;
-let metaMensal = 0;
+let metaMensal = 0;        // meta do mês atual (derivada do mapa abaixo)
+let metasPorMes = {};      // { "2026-06": 500, "2026-07": 300, ... }
 let movimentacoes = [];
 let totalSaques = 0;
 let totalAportes = 0;
@@ -360,6 +361,95 @@ function atualizarResumoMensal(operacoesFiltradas) {
     });
 }
 
+function chaveDoMesAtual() {
+    const agora = new Date();
+    return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function salvarMetaDoMes() {
+    if (!usuarioAtual) { alert("Você precisa estar logado!"); return; }
+    const sel = document.getElementById('meta-mes-sel');
+    const val = parseFloat(document.getElementById('meta-mes-valor').value) || 0;
+    const chave = sel.value;
+
+    metasPorMes[chave] = val;
+
+    // Atualiza metaMensal se for o mês atual
+    if (chave === chaveDoMesAtual()) metaMensal = val;
+
+    try {
+        const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
+        await setDoc(docRef, { metasPorMes }, { merge: true });
+        renderizarTabelaMetas();
+        aplicarFiltros();
+        alert("Meta salva com sucesso!");
+    } catch (e) {
+        console.error("Erro ao salvar meta:", e);
+        alert("Falha ao salvar a meta.");
+    }
+}
+
+async function excluirMetaDoMes(chave) {
+    if (!usuarioAtual) return;
+    if (!confirm("Remover a meta deste mês?")) return;
+    delete metasPorMes[chave];
+    if (chave === chaveDoMesAtual()) metaMensal = 0;
+    try {
+        const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
+        await setDoc(docRef, { metasPorMes }, { merge: true });
+        renderizarTabelaMetas();
+        aplicarFiltros();
+    } catch (e) {
+        console.error("Erro ao excluir meta:", e);
+    }
+}
+
+function renderizarTabelaMetas() {
+    const corpo = document.getElementById('corpo-metas-mensais');
+    if (!corpo) return;
+    corpo.innerHTML = '';
+
+    const chaves = Object.keys(metasPorMes).filter(k => metasPorMes[k] > 0).sort().reverse();
+
+    if (chaves.length === 0) {
+        corpo.innerHTML = `<tr><td colspan="5" style="color:var(--text-faint);padding:14px 10px;">Nenhuma meta definida ainda.</td></tr>`;
+        return;
+    }
+
+    chaves.forEach(chave => {
+        const [ano, mes] = chave.split('-');
+        const nomeMes = `${MESES_PT[parseInt(mes) - 1]} ${ano}`;
+        const meta = metasPorMes[chave];
+
+        // Lucro real daquele mês (todas as operações)
+        const lucroMes = todasOperacoes.filter(op => {
+            const partes = op.dataLimpa.split('-');
+            if (partes.length < 3) return false;
+            const mesOp = String(monthOrder[partes[1].toLowerCase()] + 1).padStart(2, '0');
+            const anoOp = '20' + partes[2];
+            return `${anoOp}-${mesOp}` === chave;
+        }).reduce((acc, op) => acc + op.pnl, 0);
+
+        const pct = meta > 0 ? ((lucroMes / meta) * 100).toFixed(1) : '—';
+        const corPct = lucroMes >= meta ? 'var(--green)' : lucroMes >= 0 ? 'var(--accent-amber)' : 'var(--red)';
+        const badgeClass = lucroMes >= meta ? 'vs-meta-ok' : 'vs-meta-nok';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${nomeMes}</td>
+            <td>R$ ${meta.toFixed(2)}</td>
+            <td style="color:${lucroMes >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600;">R$ ${lucroMes.toFixed(2)}</td>
+            <td><span class="vs-meta-badge ${badgeClass}">${pct}%</span></td>
+            <td><button class="btn-excluir-mov" data-chave="${chave}">Remover</button></td>
+        `;
+        corpo.appendChild(tr);
+    });
+
+    corpo.querySelectorAll('.btn-excluir-mov').forEach(btn => {
+        btn.addEventListener('click', () => excluirMetaDoMes(btn.dataset.chave));
+    });
+}
+
 async function puxarBancaDoFirebase(user) {
     if (!user) return;
     try {
@@ -371,17 +461,33 @@ async function puxarBancaDoFirebase(user) {
             bancaInicialNuvem = parseFloat(docSnap.data().valorBancaInicial || 750);
             bancaNubank = parseFloat(docSnap.data().valorNubank || 0);
             metaMensal = parseFloat(docSnap.data().metaMensal || 0);
+            metasPorMes = docSnap.data().metasPorMes || {};
         } else {
             bancaNuvem = 1000;
             bancaInicialNuvem = 750;
             bancaNubank = 0;
             metaMensal = 0;
+            metasPorMes = {};
         }
         
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
         document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
         document.getElementById('input-banca-nubank').value = bancaNubank.toFixed(2);
         document.getElementById('input-meta-mensal').value = metaMensal.toFixed(2);
+
+        // Derivar metaMensal do mapa pelo mês atual
+        const chaveHoje = chaveDoMesAtual();
+        metaMensal = parseFloat(metasPorMes[chaveHoje] || metaMensal || 0);
+
+        // Pré-selecionar mês atual no select de metas
+        const selMeta = document.getElementById('meta-mes-sel');
+        if (selMeta) {
+            selMeta.value = chaveHoje;
+            const metaDoMesSel = parseFloat(metasPorMes[chaveHoje] || 0);
+            document.getElementById('meta-mes-valor').value = metaDoMesSel.toFixed(2);
+        }
+
+        renderizarTabelaMetas();
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         
         atualizarLucroLiquidoReal();
@@ -409,7 +515,8 @@ async function salvarConfiguracoesNoFirebase() {
             valorBanca: bancaNuvem,
             valorBancaInicial: bancaInicialNuvem,
             valorNubank: bancaNubank,
-            metaMensal: metaMensal
+            metaMensal: metaMensal,
+            metasPorMes: metasPorMes
         }, { merge: true });
         
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
@@ -781,6 +888,15 @@ if(btnConfig) btnConfig.addEventListener('click', () => switchTab('btn-aba-confi
 
 const btnSalvarConfig = document.getElementById('btn-salvar-config');
 if(btnSalvarConfig) btnSalvarConfig.addEventListener('click', salvarConfiguracoesNoFirebase);
+
+const btnSalvarMetaMes = document.getElementById('btn-salvar-meta-mes');
+if(btnSalvarMetaMes) btnSalvarMetaMes.addEventListener('click', salvarMetaDoMes);
+
+const selMetaMes = document.getElementById('meta-mes-sel');
+if(selMetaMes) selMetaMes.addEventListener('change', () => {
+    const val = parseFloat(metasPorMes[selMetaMes.value] || 0);
+    document.getElementById('meta-mes-valor').value = val.toFixed(2);
+});
 
 const btnResumoTabela = document.getElementById('btn-resumo-tabela');
 const btnResumoGrafico = document.getElementById('btn-resumo-grafico');
