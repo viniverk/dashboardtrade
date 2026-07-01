@@ -140,9 +140,79 @@ h1, h2, h3 {
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  padding-bottom: 20px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 20px;
+}
+
+.header-bancas {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.header-banca-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.header-banca-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.header-banca-valor {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  letter-spacing: 0.01em;
+}
+
+.header-banca-valor--real {
+  color: var(--green);
+}
+
+.header-banca-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border-subtle);
+}
+
+/* Barra de abas separada */
+.abas-nav {
+  margin-bottom: 16px;
+  margin-top: 12px;
+}
+
+.abas-nav .abas {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
+
+@media (max-width: 720px) {
+  .header-bancas {
+    width: 100%;
+    justify-content: space-around;
+  }
+  .header-banca-item { align-items: center; }
+  .header-banca-valor { font-size: 18px; }
+  .abas-nav .abas { width: 100%; }
+  .tab-btn { flex: 1; font-size: 11.5px; padding: 8px 6px; }
 }
 
 .header-brand {
@@ -187,39 +257,7 @@ h1, h2, h3 {
   .header-subtitle { display: none; }
 }
 
-.banca-resumo {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 22px;
-  margin-top: 6px;
-}
-
-.banca-label {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-muted);
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-#texto-banca-superior {
-  font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--accent-amber);
-  letter-spacing: 0.01em;
-}
-
-.banca-label--real { color: var(--text-faint); }
-
-#texto-banca-real-total {
-  font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--green);
-  letter-spacing: 0.01em;
-}
+/* banca-resumo removido — bancas agora ficam no painel direito do header */
 
 /* Abas */
 .abas {
