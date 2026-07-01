@@ -91,6 +91,29 @@
         </div>
 
         <div id="conteudo-dashboard">
+
+            <!-- Meta Mensal -->
+            <div class="card card--meta" id="card-meta">
+                <div class="meta-topo">
+                    <div>
+                        <h3>🎯 Meta do Mês Atual</h3>
+                        <p id="meta-descricao" class="meta-desc">Defina uma meta em Configurações</p>
+                    </div>
+                    <div class="meta-valores">
+                        <span id="meta-lucro-mes" class="meta-lucro">R$ 0,00</span>
+                        <span class="meta-separador">/</span>
+                        <span id="meta-valor-alvo" class="meta-alvo">R$ 0,00</span>
+                    </div>
+                </div>
+                <div class="meta-barra-bg">
+                    <div id="meta-barra-progresso" class="meta-barra-fill" style="width: 0%"></div>
+                </div>
+                <div class="meta-rodape">
+                    <span id="meta-pct-texto" class="meta-pct">0%</span>
+                    <span id="meta-faltando" class="meta-falta"></span>
+                </div>
+            </div>
+
             <div class="cards">
 
                 <div class="card">
@@ -121,6 +144,38 @@
 
             <div class="chart-container">
                 <canvas id="meuGrafico"></canvas>
+            </div>
+
+            <!-- Resumo por Mês -->
+            <div class="section-resumo-mensal">
+                <div class="resumo-mensal-header">
+                    <h3>Resumo por Mês</h3>
+                    <div class="resumo-mensal-toggle">
+                        <button id="btn-resumo-tabela" class="toggle-btn active">Tabela</button>
+                        <button id="btn-resumo-grafico" class="toggle-btn">Gráfico</button>
+                    </div>
+                </div>
+
+                <div id="resumo-tabela-wrapper">
+                    <table id="tabela-resumo-mensal">
+                        <thead>
+                            <tr>
+                                <th>Mês</th>
+                                <th>Operações</th>
+                                <th>Greens</th>
+                                <th>Reds</th>
+                                <th>Win Rate</th>
+                                <th>Lucro Bruto</th>
+                                <th>vs Meta</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpo-resumo-mensal"></tbody>
+                    </table>
+                </div>
+
+                <div id="resumo-grafico-wrapper" style="display:none; height: 300px; position: relative;">
+                    <canvas id="graficoMensal"></canvas>
+                </div>
             </div>
 
             <div class="table-container">
@@ -257,6 +312,14 @@
                     <div class="input-money">
                         <span>R$</span>
                         <input type="number" id="input-banca-inicial" value="750.00" step="50">
+                    </div>
+                </div>
+                <div class="card card--config-meta">
+                    <h3>🎯 Meta Mensal de Lucro</h3>
+                    <p class="hint">Aparece como barra de progresso no dashboard.</p>
+                    <div class="input-money">
+                        <span>R$</span>
+                        <input type="number" id="input-meta-mensal" value="0.00" step="50">
                     </div>
                 </div>
             </div>
