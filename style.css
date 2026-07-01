@@ -182,7 +182,7 @@ h1, h2, h3 {
 }
 
 @media (max-width: 720px) {
-  .header-logo { height: 52px; }
+  .header-logo { height: 80px; }
   .dashboard-header h1 { font-size: 18px; }
   .header-subtitle { display: none; }
 }
