@@ -148,40 +148,42 @@ h1, h2, h3 {
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .header-logo {
-  height: 54px;
+  height: 72px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
-  filter: drop-shadow(0 2px 8px rgba(45, 212, 167, 0.18));
+  filter: drop-shadow(0 2px 12px rgba(45, 212, 167, 0.22));
 }
 
 .dashboard-header h1 {
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 700;
   color: var(--text-primary);
+  line-height: 1.2;
 }
 
 .header-subtitle {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 400;
   color: var(--text-faint);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
 }
 
 .login-logo {
-  width: 90px;
+  width: 110px;
   height: auto;
-  margin: 0 auto 16px;
+  margin: 0 auto 20px;
   display: block;
-  filter: drop-shadow(0 4px 12px rgba(45, 212, 167, 0.2));
+  filter: drop-shadow(0 4px 14px rgba(45, 212, 167, 0.25));
 }
 
 @media (max-width: 720px) {
-  .header-logo { height: 42px; }
-  .dashboard-header h1 { font-size: 17px; }
+  .header-logo { height: 52px; }
+  .dashboard-header h1 { font-size: 18px; }
   .header-subtitle { display: none; }
 }
 
