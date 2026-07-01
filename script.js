@@ -624,7 +624,8 @@ function aplicarFiltros() {
         const mercLower = op.mercado.toLowerCase();
         const condEstrat = (fEstrat === 'TODAS' || 
                            (fEstrat === 'MO' && (mercLower.includes('resultado') || mercLower.includes('probabilidades') || mercLower.includes('prolongamento'))) || 
-                           (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))));
+                           (fEstrat === 'LG' && (mercLower.includes('placar') || mercLower.includes('correct score'))) ||
+                           (fEstrat === 'UF' && (mercLower.includes('mais/menos') || mercLower.includes('over/under'))));
                            
         const condAno = (fAno === 'TODOS' || op.ano === fAno);
         const condMes = (fMes === 'TODOS' || op.mes === mesBuscado);
@@ -707,7 +708,7 @@ function atualizarRanking(lista) {
 
     const formatDesc = (op) => {
         let m = op.mercado;
-        m = m.replace(/Resultado da partida/ig, "Match Odds").replace(/Resultado/ig, "Match Odds").replace(/Placar correto/ig, "Lay Goleada").replace(/Placar/ig, "Lay Goleada").replace(/Prolongamento/ig, "Match Odds (Prol.)");
+        m = m.replace(/Resultado da partida/ig, "Match Odds").replace(/Resultado/ig, "Match Odds").replace(/Placar correto/ig, "Lay Goleada").replace(/Placar/ig, "Lay Goleada").replace(/Prolongamento/ig, "Match Odds (Prol.)").replace(/Mais\/Menos/ig, "Under à Frente").replace(/Over\/Under/ig, "Under à Frente");
         return `${m}\nData: ${op.dataLimpa}`;
     };
 
@@ -796,7 +797,9 @@ function atualizarTabela(lista) {
                                        .replace(/Resultado/ig, "Match Odds")
                                        .replace(/Placar correto/ig, "Lay Goleada")
                                        .replace(/Placar/ig, "Lay Goleada")
-                                       .replace(/Prolongamento/ig, "Match Odds (Prol.)");
+                                       .replace(/Prolongamento/ig, "Match Odds (Prol.)")
+                                       .replace(/Mais\/Menos/ig, "Under à Frente")
+                                       .replace(/Over\/Under/ig, "Under à Frente");
 
         const pnlClass = op.pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
 
