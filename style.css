@@ -601,7 +601,77 @@ tbody tr:last-child td { border-bottom: none; }
 .btn-save:active { transform: translateY(1px); }
 
 /* =========================================================
-   Meta Mensal
+   Meta Compacta (entre header e abas)
+   ========================================================= */
+
+.meta-compacta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  margin: 10px 0 0;
+  flex-wrap: wrap;
+  transition: border-color 0.3s ease;
+}
+
+.meta-compacta.meta-atingida { border-color: var(--green); }
+.meta-compacta.meta-perto    { border-color: var(--accent-amber); }
+
+.meta-compacta-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.meta-compacta-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.meta-compacta-lucro {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.meta-compacta-sep { color: var(--text-faint); font-size: 12px; }
+
+.meta-compacta-alvo {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.meta-compacta-barra-bg {
+  flex: 1;
+  min-width: 80px;
+  height: 5px;
+  background: var(--bg-surface-alt);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.meta-compacta-pct {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 42px;
+  text-align: right;
+}
+
+/* =========================================================
+   Meta Mensal (card grande — mantido para referência CSS)
    ========================================================= */
 
 .card--meta {
