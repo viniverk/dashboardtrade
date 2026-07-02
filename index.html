@@ -154,14 +154,6 @@
                 </div>
             </div>
 
-            <!-- Win Rate por Estratégia -->
-            <div class="card card--winrate">
-                <h3>🎯 Win Rate por Estratégia <span class="winrate-hint">(operações filtradas)</span></h3>
-                <div class="winrate-grid" id="winrate-grid">
-                    <!-- preenchido via JS -->
-                </div>
-            </div>
-
             <div class="chart-container">
                 <canvas id="meuGrafico"></canvas>
             </div>
@@ -202,7 +194,13 @@
         </div>
 
         <div id="conteudo-operacoes" style="display:none; margin-top: 20px;">
-            <div class="table-container">
+
+            <!-- KPIs de Win Rate -->
+            <div class="cards" id="winrate-grid">
+                <!-- preenchido via JS -->
+            </div>
+
+            <div class="table-container" style="margin-top: 18px;">
                 <h3>Listagem de Operações Filtradas</h3>
                 <table id="tabela-operacoes">
                     <thead>
