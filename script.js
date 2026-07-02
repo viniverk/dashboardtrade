@@ -21,11 +21,14 @@ let chart;
 let sortDirection = 1;
 let usuarioAtual = null;
 
+const TAXA_COMISSAO_BETFAIR = 0.065; // 6.5% sobre cada operação ganha
+
 let bancaNuvem = 1000.00; 
 let bancaInicialNuvem = 750.00; 
 let bancaNubank = 0.00;
-let metaMensal = 0;        // meta do mês atual (derivada do mapa abaixo)
-let metasPorMes = {};      // { "2026-06": 500, "2026-07": 300, ... }
+let taxaComissao = 6.5;  // % cobrada pela Betfair sobre operações ganhas
+let metaMensal = 0;
+let metasPorMes = {};
 let movimentacoes = [];
 let totalSaques = 0;
 let totalAportes = 0;
@@ -460,17 +463,20 @@ async function puxarBancaDoFirebase(user) {
             bancaNuvem = parseFloat(docSnap.data().valorBanca || 1000);
             bancaInicialNuvem = parseFloat(docSnap.data().valorBancaInicial || 750);
             bancaNubank = parseFloat(docSnap.data().valorNubank || 0);
+            taxaComissao = parseFloat(docSnap.data().taxaComissao ?? 6.5);
             metasPorMes = docSnap.data().metasPorMes || {};
         } else {
             bancaNuvem = 1000;
             bancaInicialNuvem = 750;
             bancaNubank = 0;
+            taxaComissao = 6.5;
             metasPorMes = {};
         }
         
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
         document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
         document.getElementById('input-banca-nubank').value = bancaNubank.toFixed(2);
+        document.getElementById('input-taxa-comissao').value = taxaComissao.toFixed(1);
 
         // Derivar metaMensal sempre do mapa de metas por mês
         const chaveHoje = chaveDoMesAtual();
@@ -503,13 +509,15 @@ async function salvarConfiguracoesNoFirebase() {
     bancaNuvem = parseFloat(document.getElementById('input-banca-usuario').value) || 0;
     bancaInicialNuvem = parseFloat(document.getElementById('input-banca-inicial').value) || 0;
     bancaNubank = parseFloat(document.getElementById('input-banca-nubank').value) || 0;
-    
+    taxaComissao = parseFloat(document.getElementById('input-taxa-comissao').value) || 6.5;
+
     try {
         const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
         await setDoc(docRef, { 
             valorBanca: bancaNuvem,
             valorBancaInicial: bancaInicialNuvem,
             valorNubank: bancaNubank,
+            taxaComissao: taxaComissao,
             metasPorMes: metasPorMes
         }, { merge: true });
         
@@ -633,26 +641,16 @@ function aplicarFiltros() {
     elLucroBruto.innerText = `R$ ${lucroBruto.toFixed(2)}`;
     setPnlClass(elLucroBruto, lucroBruto);
 
-    // CÁLCULO DE COMISSÕES BETFAIR
-    // Importante: Lucro Líquido Real e Comissões são valores DA CONTA INTEIRA
-    // (Banca Real vs Banca Inicial), então precisam ser comparados sempre com o
-    // lucro bruto TOTAL (todas as operações, sem filtro de estratégia/data) —
-    // senão a conta fecha errado quando o usuário filtra só uma estratégia.
-    const lucroBrutoTotal = todasOperacoes.reduce((acc, op) => acc + op.pnl, 0);
-    const lucroLiquidoReal = calcularLucroLiquidoReal();
-    const comissoes = lucroBrutoTotal - lucroLiquidoReal;
-    let pctComissoes = 0;
-    if (lucroBrutoTotal > 0) {
-        pctComissoes = (comissoes / lucroBrutoTotal) * 100;
-    }
+    // COMISSÕES: taxa % sobre a soma dos lucros positivos das operações filtradas
+    const totalGanhosBrutos = filtradas.filter(op => op.pnl > 0).reduce((acc, op) => acc + op.pnl, 0);
+    const comissoes = totalGanhosBrutos * (taxaComissao / 100);
+    const lucroLiquidoFiltrado = lucroBruto - comissoes;
+    const pctComissoes = lucroBruto > 0 ? (comissoes / lucroBruto) * 100 : 0;
+
     const elComissoesValor = document.getElementById('comissoes-valor');
     const elComissoesPct = document.getElementById('comissoes-pct');
-    if (elComissoesValor) {
-        elComissoesValor.innerText = `R$ ${comissoes.toFixed(2)}`;
-    }
-    if (elComissoesPct) {
-        elComissoesPct.innerText = `${pctComissoes.toFixed(2)}% em relação ao Bruto (total da conta)`;
-    }
+    if (elComissoesValor) elComissoesValor.innerText = `R$ ${comissoes.toFixed(2)}`;
+    if (elComissoesPct) elComissoesPct.innerText = `${taxaComissao}% s/ ganhos • ${pctComissoes.toFixed(2)}% do Bruto`;
 
     const comResp = filtradas.filter(op => op.resp > 0);
     const totalResp = comResp.reduce((acc, op) => acc + op.resp, 0);
