@@ -79,6 +79,7 @@ function atualizarWinRate(filtradas) {
     const estrategias = [
         {
             nome: 'Match Odds',
+            emoji: '⚽',
             cor: 'var(--accent-blue)',
             filtro: op => {
                 const m = op.mercado.toLowerCase();
@@ -87,6 +88,7 @@ function atualizarWinRate(filtradas) {
         },
         {
             nome: 'Lay Goleada',
+            emoji: '🛡️',
             cor: 'var(--red)',
             filtro: op => {
                 const m = op.mercado.toLowerCase();
@@ -95,6 +97,7 @@ function atualizarWinRate(filtradas) {
         },
         {
             nome: 'Under à Frente',
+            emoji: '📉',
             cor: 'var(--green)',
             filtro: op => {
                 const m = op.mercado.toLowerCase();
@@ -105,43 +108,32 @@ function atualizarWinRate(filtradas) {
 
     grid.innerHTML = '';
 
-    estrategias.forEach((est, idx) => {
+    estrategias.forEach(est => {
         const ops = filtradas.filter(est.filtro);
         const total = ops.length;
         const greens = ops.filter(op => op.pnl > 0).length;
-        const reds = ops.filter(op => op.pnl < 0).length;
+        const reds = total - greens;
         const pct = total > 0 ? (greens / total) * 100 : 0;
+        const lucro = ops.reduce((acc, op) => acc + op.pnl, 0);
 
-        // Cor da barra baseada no win rate
-        let corBarra = 'var(--red)';
-        if (pct >= 60) corBarra = 'var(--green)';
-        else if (pct >= 45) corBarra = 'var(--accent-amber)';
+        let corPct = 'var(--red)';
+        if (pct >= 60) corPct = 'var(--green)';
+        else if (pct >= 45) corPct = 'var(--accent-amber)';
 
-        const item = document.createElement('div');
-        item.className = 'winrate-item';
-        item.innerHTML = `
-            <div class="winrate-item-header">
-                <span class="winrate-item-nome" style="color:${est.cor}">${est.nome}</span>
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+            <h3 style="color:${est.cor}; text-transform:none; letter-spacing:0; font-size:13px;">${est.emoji} ${est.nome}</h3>
+            <p style="color:${corPct}; font-size: 28px;">${total > 0 ? pct.toFixed(1) + '%' : '—'}</p>
+            <div class="winrate-barra-bg" style="margin: 8px 0 6px;">
+                <div class="winrate-barra-fill" style="width:${pct.toFixed(1)}%; background:${corPct};"></div>
             </div>
-            <div class="winrate-item-pct" style="color:${corBarra}">${pct.toFixed(1)}%</div>
-            <div class="winrate-barra-bg">
-                <div class="winrate-barra-fill" style="width:${pct.toFixed(1)}%; background:${corBarra};"></div>
-            </div>
-            <div class="winrate-item-detalhe">
-                ${total > 0
-                    ? `✅ ${greens} green &nbsp;·&nbsp; ❌ ${reds} red &nbsp;·&nbsp; ${total} ops`
-                    : 'Sem operações nos filtros'}
-            </div>
+            <span class="sub">✅ ${greens} &nbsp;·&nbsp; ❌ ${reds} &nbsp;·&nbsp; ${total} ops</span>
+            <span class="sub" style="color:${lucro >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600; margin-top:4px; display:block;">
+                R$ ${lucro.toFixed(2)}
+            </span>
         `;
-
-        grid.appendChild(item);
-
-        // Divisor entre estratégias (exceto após o último)
-        if (idx < estrategias.length - 1) {
-            const div = document.createElement('div');
-            div.className = 'winrate-divider';
-            grid.appendChild(div);
-        }
+        grid.appendChild(card);
     });
 }
 
