@@ -72,7 +72,80 @@ function calcularLucroLiquidoReal() {
     return (bancaNuvem - bancaInicialNuvem) + totalSaques - totalAportes;
 }
 
-function atualizarLucroLiquidoReal() {
+function atualizarWinRate(filtradas) {
+    const grid = document.getElementById('winrate-grid');
+    if (!grid) return;
+
+    const estrategias = [
+        {
+            nome: 'Match Odds',
+            cor: 'var(--accent-blue)',
+            filtro: op => {
+                const m = op.mercado.toLowerCase();
+                return m.includes('resultado') || m.includes('probabilidades') || m.includes('prolongamento');
+            }
+        },
+        {
+            nome: 'Lay Goleada',
+            cor: 'var(--red)',
+            filtro: op => {
+                const m = op.mercado.toLowerCase();
+                return m.includes('placar') || m.includes('correct score');
+            }
+        },
+        {
+            nome: 'Under à Frente',
+            cor: 'var(--green)',
+            filtro: op => {
+                const m = op.mercado.toLowerCase();
+                return m.includes('mais/menos') || m.includes('over/under');
+            }
+        }
+    ];
+
+    grid.innerHTML = '';
+
+    estrategias.forEach((est, idx) => {
+        const ops = filtradas.filter(est.filtro);
+        const total = ops.length;
+        const greens = ops.filter(op => op.pnl > 0).length;
+        const reds = ops.filter(op => op.pnl < 0).length;
+        const pct = total > 0 ? (greens / total) * 100 : 0;
+
+        // Cor da barra baseada no win rate
+        let corBarra = 'var(--red)';
+        if (pct >= 60) corBarra = 'var(--green)';
+        else if (pct >= 45) corBarra = 'var(--accent-amber)';
+
+        const item = document.createElement('div');
+        item.className = 'winrate-item';
+        item.innerHTML = `
+            <div class="winrate-item-header">
+                <span class="winrate-item-nome" style="color:${est.cor}">${est.nome}</span>
+            </div>
+            <div class="winrate-item-pct" style="color:${corBarra}">${pct.toFixed(1)}%</div>
+            <div class="winrate-barra-bg">
+                <div class="winrate-barra-fill" style="width:${pct.toFixed(1)}%; background:${corBarra};"></div>
+            </div>
+            <div class="winrate-item-detalhe">
+                ${total > 0
+                    ? `✅ ${greens} green &nbsp;·&nbsp; ❌ ${reds} red &nbsp;·&nbsp; ${total} ops`
+                    : 'Sem operações nos filtros'}
+            </div>
+        `;
+
+        grid.appendChild(item);
+
+        // Divisor entre estratégias (exceto após o último)
+        if (idx < estrategias.length - 1) {
+            const div = document.createElement('div');
+            div.className = 'winrate-divider';
+            grid.appendChild(div);
+        }
+    });
+}
+
+
     const lucroLiquidoReal = calcularLucroLiquidoReal();
     const elLucroLiq = document.getElementById('lucro-liquido');
     if (elLucroLiq) {
@@ -670,6 +743,7 @@ function aplicarFiltros() {
     atualizarRanking(filtradas);
     atualizarMetaMensal(filtradas);
     atualizarResumoMensal(filtradas);
+    atualizarWinRate(filtradas);
 }
 
 function atualizarRanking(lista) {
