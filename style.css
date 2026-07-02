@@ -784,13 +784,12 @@ tbody tr:last-child td { border-bottom: none; }
    Config: card de meta
    ========================================================= */
 
-.card--config-meta {
-  background: rgba(232, 163, 61, 0.08);
-  border: 1px solid rgba(232, 163, 61, 0.25);
+.card--config-comissao {
+  background: rgba(255, 92, 114, 0.08);
+  border: 1px solid rgba(255, 92, 114, 0.25);
 }
-
-.card--config-meta h3 { color: var(--accent-amber); }
-.card--config-meta .input-money span { color: var(--accent-amber); }
+.card--config-comissao h3 { color: var(--red); }
+.card--config-comissao .input-money span { color: var(--red); }
 
 .card--mov-saque {
   background: var(--red-soft);
