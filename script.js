@@ -302,9 +302,11 @@ function atualizarResumoMensal(operacoesFiltradas) {
                 const corBarra = d.lucro >= 0 ? 'var(--green)' : 'var(--red)';
 
                 let vsMeta = '<span class="vs-meta-badge vs-meta-nd">—</span>';
-                if (metaMensal > 0) {
-                    const ok = d.lucro >= metaMensal;
-                    const pctMeta = ((d.lucro / metaMensal) * 100).toFixed(0);
+                const chaveDoMes = `${d.ano}-${String(d.mes + 1).padStart(2, '0')}`;
+                const metaDoMes = parseFloat(metasPorMes[chaveDoMes] || 0);
+                if (metaDoMes > 0) {
+                    const ok = d.lucro >= metaDoMes;
+                    const pctMeta = ((d.lucro / metaDoMes) * 100).toFixed(0);
                     vsMeta = ok
                         ? `<span class="vs-meta-badge vs-meta-ok">✅ ${pctMeta}%</span>`
                         : `<span class="vs-meta-badge vs-meta-nok">${pctMeta}%</span>`;
