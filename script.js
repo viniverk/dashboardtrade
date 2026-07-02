@@ -492,7 +492,6 @@ async function puxarBancaDoFirebase(user) {
         
         atualizarLucroLiquidoReal();
         atualizarBancaRealTotal();
-        aplicarFiltros(); // Força a atualização do KPI de Comissões após puxar a banca
     } catch (e) {
         console.error("Erro ao ler banca:", e);
     }
@@ -917,23 +916,23 @@ const inputMovData = document.getElementById('mov-data');
 if (inputMovData) inputMovData.value = new Date().toISOString().split('T')[0];
 
 document.getElementById('btn-login').addEventListener('click', () => {
-    signInWithPopup(auth, provider).then((result) => {
+    signInWithPopup(auth, provider).then(async (result) => {
         usuarioAtual = result.user;
         document.getElementById('auth-container').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
-        puxarBancaDoFirebase(usuarioAtual);
-        carregarMovimentacoes(usuarioAtual);
+        await puxarBancaDoFirebase(usuarioAtual);
+        await carregarMovimentacoes(usuarioAtual);
         carregarDadosDoGitHub();
     }).catch(error => console.error("Erro no login:", error));
 });
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
     if (user) {
         usuarioAtual = user;
         document.getElementById('auth-container').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
-        puxarBancaDoFirebase(usuarioAtual);
-        carregarMovimentacoes(usuarioAtual);
+        await puxarBancaDoFirebase(usuarioAtual);
+        await carregarMovimentacoes(usuarioAtual);
         carregarDadosDoGitHub();
     }
 });
