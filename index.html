@@ -154,6 +154,14 @@
                 </div>
             </div>
 
+            <!-- Win Rate por Estratégia -->
+            <div class="card card--winrate">
+                <h3>🎯 Win Rate por Estratégia <span class="winrate-hint">(operações filtradas)</span></h3>
+                <div class="winrate-grid" id="winrate-grid">
+                    <!-- preenchido via JS -->
+                </div>
+            </div>
+
             <div class="chart-container">
                 <canvas id="meuGrafico"></canvas>
             </div>
@@ -328,14 +336,6 @@
                     <div class="input-money">
                         <span>R$</span>
                         <input type="number" id="input-banca-inicial" value="750.00" step="50">
-                    </div>
-                </div>
-                <div class="card card--config-meta">
-                    <h3>🎯 Meta Mensal de Lucro</h3>
-                    <p class="hint">Aparece como barra de progresso no dashboard.</p>
-                    <div class="input-money">
-                        <span>R$</span>
-                        <input type="number" id="input-meta-mensal" value="0.00" step="50">
                     </div>
                 </div>
             </div>
