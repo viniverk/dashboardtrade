@@ -65,9 +65,9 @@ function atualizarBancaRealTotal() {
     }
 }
 
-// Lucro Líquido Real ajustado por movimentações: saques somam de volta
-// (não são prejuízo, só saíram da Betfair), aportes são descontados
-// (não são lucro, é dinheiro novo entrando).
+// Lucro Líquido Real = (Banca Atual - Banca Inicial) + Saques - Aportes
+// Saques somam: dinheiro que saiu da Betfair mas continua sendo seu lucro.
+// Aportes subtraem: dinheiro novo que entrou, não é lucro de operações.
 function calcularLucroLiquidoReal() {
     return (bancaNuvem - bancaInicialNuvem) + totalSaques - totalAportes;
 }
@@ -637,15 +637,17 @@ function aplicarFiltros() {
     elLucroBruto.innerText = `R$ ${lucroBruto.toFixed(2)}`;
     setPnlClass(elLucroBruto, lucroBruto);
 
-    // COMISSÕES = Lucro Bruto - Lucro Líquido Real
+    // COMISSÕES = Lucro Bruto Total (todas as ops) − Lucro Líquido Real
+    // Usa o total sem filtro pois o Lucro Líquido Real reflete a conta inteira
+    const lucroBrutoTotal = todasOperacoes.reduce((acc, op) => acc + op.pnl, 0);
     const lucroLiquidoReal = calcularLucroLiquidoReal();
-    const comissoes = lucroBruto - lucroLiquidoReal;
-    const pctComissoes = lucroBruto !== 0 ? (comissoes / Math.abs(lucroBruto)) * 100 : 0;
+    const comissoes = lucroBrutoTotal - lucroLiquidoReal;
+    const pctComissoes = lucroBrutoTotal !== 0 ? (comissoes / Math.abs(lucroBrutoTotal)) * 100 : 0;
 
     const elComissoesValor = document.getElementById('comissoes-valor');
     const elComissoesPct = document.getElementById('comissoes-pct');
     if (elComissoesValor) elComissoesValor.innerText = `R$ ${comissoes.toFixed(2)}`;
-    if (elComissoesPct) elComissoesPct.innerText = `${pctComissoes.toFixed(2)}% do Bruto`;
+    if (elComissoesPct) elComissoesPct.innerText = `${pctComissoes.toFixed(2)}% do Bruto total da conta`;
 
     const comResp = filtradas.filter(op => op.resp > 0);
     const totalResp = comResp.reduce((acc, op) => acc + op.resp, 0);
