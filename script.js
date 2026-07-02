@@ -261,17 +261,15 @@ async function excluirMovimentacao(id) {
 const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 function atualizarMetaMensal(operacoesFiltradas) {
-    const card = document.getElementById('card-meta');
-    const elLucro = document.getElementById('meta-lucro-mes');
-    const elAlvo = document.getElementById('meta-valor-alvo');
-    const elDesc = document.getElementById('meta-descricao');
-    const barra = document.getElementById('meta-barra-progresso');
-    const elPct = document.getElementById('meta-pct-texto');
-    const elFalta = document.getElementById('meta-faltando');
-    if (!card) return;
+    const compacta     = document.getElementById('meta-compacta');
+    const elLucro      = document.getElementById('meta-compacta-lucro');
+    const elAlvo       = document.getElementById('meta-compacta-alvo');
+    const elMes        = document.getElementById('meta-compacta-mes');
+    const barra        = document.getElementById('meta-compacta-barra');
+    const elPct        = document.getElementById('meta-compacta-pct');
+    if (!compacta) return;
 
-    // Calcula lucro do mês atual usando TODAS as operações (sem filtro de estratégia)
-    const agora = new Date();
+    const agora    = new Date();
     const mesAtual = agora.getMonth();
     const anoAtual = agora.getFullYear();
 
@@ -283,50 +281,38 @@ function atualizarMetaMensal(operacoesFiltradas) {
         return mesOp === mesAtual && anoOp === anoAtual;
     }).reduce((acc, op) => acc + op.pnl, 0);
 
-    const nomeMes = MESES_PT[mesAtual];
-    if (elDesc) elDesc.innerText = `${nomeMes} ${anoAtual} · todas as estratégias`;
+    if (elMes)   elMes.innerText   = MESES_PT[mesAtual];
     if (elLucro) {
-        elLucro.innerText = `R$ ${lucroDesseMes.toFixed(2)}`;
-        elLucro.style.color = lucroDesseMes >= 0 ? 'var(--green)' : 'var(--red)';
+        elLucro.innerText    = `R$ ${lucroDesseMes.toFixed(2)}`;
+        elLucro.style.color  = lucroDesseMes >= 0 ? 'var(--green)' : 'var(--red)';
     }
 
     if (metaMensal <= 0) {
-        if (elAlvo) elAlvo.innerText = '—';
-        if (barra) barra.style.width = '0%';
-        if (elPct) elPct.innerText = 'Sem meta definida';
-        if (elFalta) elFalta.innerText = 'Configure em ⚙️ Configurações';
-        card.classList.remove('meta-atingida', 'meta-perto');
+        if (elAlvo)  elAlvo.innerText  = '—';
+        if (barra)   barra.style.width = '0%';
+        if (elPct)   elPct.innerText   = 'Sem meta';
+        compacta.classList.remove('meta-atingida', 'meta-perto');
         return;
     }
 
     if (elAlvo) elAlvo.innerText = `R$ ${metaMensal.toFixed(2)}`;
 
-    const pct = Math.min((lucroDesseMes / metaMensal) * 100, 100);
     const pctReal = (lucroDesseMes / metaMensal) * 100;
+    const pct     = Math.max(0, Math.min(pctReal, 100));
 
     if (barra) {
-        barra.style.width = `${Math.max(pct, 0)}%`;
+        barra.style.width = `${pct}%`;
         barra.classList.remove('fill-verde', 'fill-amarelo', 'fill-vermelho');
-        if (pctReal >= 100) barra.classList.add('fill-verde');
+        if (pctReal >= 100)     barra.classList.add('fill-verde');
         else if (pctReal >= 70) barra.classList.add('fill-amarelo');
-        else barra.classList.add('fill-vermelho');
+        else                    barra.classList.add('fill-vermelho');
     }
 
-    if (elPct) elPct.innerText = `${pctReal.toFixed(1)}% da meta`;
+    if (elPct) elPct.innerText = `${pctReal.toFixed(1)}%`;
 
-    card.classList.remove('meta-atingida', 'meta-perto');
-    if (pctReal >= 100) {
-        card.classList.add('meta-atingida');
-        const excedente = lucroDesseMes - metaMensal;
-        if (elFalta) elFalta.innerText = `✅ Meta atingida! R$ ${excedente.toFixed(2)} acima`;
-    } else if (pctReal >= 70) {
-        card.classList.add('meta-perto');
-        const falta = metaMensal - lucroDesseMes;
-        if (elFalta) elFalta.innerText = `Faltam R$ ${falta.toFixed(2)} para a meta`;
-    } else {
-        const falta = metaMensal - lucroDesseMes;
-        if (elFalta) elFalta.innerText = `Faltam R$ ${falta.toFixed(2)} para a meta`;
-    }
+    compacta.classList.remove('meta-atingida', 'meta-perto');
+    if (pctReal >= 100)     compacta.classList.add('meta-atingida');
+    else if (pctReal >= 70) compacta.classList.add('meta-perto');
 }
 
 function atualizarResumoMensal(operacoesFiltradas) {
