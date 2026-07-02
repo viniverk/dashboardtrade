@@ -460,35 +460,31 @@ async function puxarBancaDoFirebase(user) {
             bancaNuvem = parseFloat(docSnap.data().valorBanca || 1000);
             bancaInicialNuvem = parseFloat(docSnap.data().valorBancaInicial || 750);
             bancaNubank = parseFloat(docSnap.data().valorNubank || 0);
-            metaMensal = parseFloat(docSnap.data().metaMensal || 0);
             metasPorMes = docSnap.data().metasPorMes || {};
         } else {
             bancaNuvem = 1000;
             bancaInicialNuvem = 750;
             bancaNubank = 0;
-            metaMensal = 0;
             metasPorMes = {};
         }
         
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
         document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
         document.getElementById('input-banca-nubank').value = bancaNubank.toFixed(2);
-        document.getElementById('input-meta-mensal').value = metaMensal.toFixed(2);
 
-        // Derivar metaMensal do mapa pelo mês atual
+        // Derivar metaMensal sempre do mapa de metas por mês
         const chaveHoje = chaveDoMesAtual();
-        metaMensal = parseFloat(metasPorMes[chaveHoje] || metaMensal || 0);
+        metaMensal = parseFloat(metasPorMes[chaveHoje] || 0);
+
+        renderizarTabelaMetas();
+        document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
 
         // Pré-selecionar mês atual no select de metas
         const selMeta = document.getElementById('meta-mes-sel');
         if (selMeta) {
-            selMeta.value = chaveHoje;
-            const metaDoMesSel = parseFloat(metasPorMes[chaveHoje] || 0);
-            document.getElementById('meta-mes-valor').value = metaDoMesSel.toFixed(2);
+            selMeta.value = chaveDoMesAtual();
+            document.getElementById('meta-mes-valor').value = parseFloat(metasPorMes[chaveDoMesAtual()] || 0).toFixed(2);
         }
-
-        renderizarTabelaMetas();
-        document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         
         atualizarLucroLiquidoReal();
         atualizarBancaRealTotal();
@@ -507,7 +503,6 @@ async function salvarConfiguracoesNoFirebase() {
     bancaNuvem = parseFloat(document.getElementById('input-banca-usuario').value) || 0;
     bancaInicialNuvem = parseFloat(document.getElementById('input-banca-inicial').value) || 0;
     bancaNubank = parseFloat(document.getElementById('input-banca-nubank').value) || 0;
-    metaMensal = parseFloat(document.getElementById('input-meta-mensal').value) || 0;
     
     try {
         const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
@@ -515,14 +510,13 @@ async function salvarConfiguracoesNoFirebase() {
             valorBanca: bancaNuvem,
             valorBancaInicial: bancaInicialNuvem,
             valorNubank: bancaNubank,
-            metaMensal: metaMensal,
             metasPorMes: metasPorMes
         }, { merge: true });
         
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         atualizarLucroLiquidoReal();
         atualizarBancaRealTotal();
-        aplicarFiltros(); // Atualiza a comissão na hora
+        aplicarFiltros();
         alert("Configurações salvas com sucesso!");
     } catch (e) {
         console.error("Erro ao salvar configurações:", e);
