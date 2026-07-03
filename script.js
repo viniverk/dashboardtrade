@@ -137,7 +137,87 @@ function atualizarWinRate(filtradas) {
     });
 }
 
-function atualizarLucroLiquidoReal() {
+// =========================================================
+// Aba Stake
+// =========================================================
+
+const ESTRATEGIAS_STAKE = [
+    { faixa: 'Abaixo de 5.0',      mult: 2.5,  lucroMin: 0.15, lucroMax: 0.25, redPct: 0.40,  lucroLabel: '15% a 25%', redLabel: '40%' },
+    { faixa: 'De 5.5 a 10',        mult: 3.33, lucroMin: 0.08, lucroMax: 0.12, redPct: 0.275, lucroLabel: '8% a 12%',  redLabel: '25% a 30%' },
+    { faixa: 'De 11.0 a 15.0',     mult: 5.55, lucroMin: 0.05, lucroMax: 0.07, redPct: 0.18,  lucroLabel: '5% a 7%',   redLabel: '18%' },
+    { faixa: 'De 8.0 a 13.0',      mult: 4,    lucroMin: 0.05, lucroMax: 0.10, redPct: 0.225, lucroLabel: '5% a 10%',  redLabel: '20% a 25%' },
+    { faixa: 'De 13.0 a 20.0',     mult: 6.66, lucroMin: 0.04, lucroMax: 0.06, redPct: 0.125, lucroLabel: '4% a 6%',   redLabel: '10% a 15%' },
+    { faixa: 'Back 1.04 – 1.05',   mult: 8.34, lucroMin: 0.02, lucroMax: 0.05, redPct: 0.115, lucroLabel: '2% a 5%',   redLabel: '8% a 15%' },
+    { faixa: 'Lay 35 ou 50–70min', mult: 12.5, lucroMin: 0.02, lucroMax: 0.03, redPct: 0.08,  lucroLabel: '2% a 3%',   redLabel: '8% se na tampa' },
+];
+
+function renderizarStake() {
+    const inputEl  = document.getElementById('stake-red-input');
+    const sliderEl = document.getElementById('stake-red-slider');
+    if (!inputEl) return;
+
+    const red = parseFloat(inputEl.value) || 60;
+
+    // Bancas
+    const bancaMin   = red * 25;
+    const bancaIdeal = red * 50;
+    document.getElementById('stake-banca-min').innerText   = `R$ ${bancaMin.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+    document.getElementById('stake-banca-ideal').innerText = `R$ ${bancaIdeal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+    document.getElementById('stake-banca-atual').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+
+    const statusEl = document.getElementById('stake-banca-status');
+    if (statusEl) {
+        if (bancaNuvem >= bancaIdeal) {
+            statusEl.innerText      = '✅ Banca Ideal atingida';
+            statusEl.style.color    = 'var(--green)';
+        } else if (bancaNuvem >= bancaMin) {
+            statusEl.innerText      = '⚠️ Acima da mínima';
+            statusEl.style.color    = 'var(--accent-amber)';
+        } else {
+            statusEl.innerText      = '❌ Abaixo da mínima';
+            statusEl.style.color    = 'var(--red)';
+        }
+    }
+
+    // Tabela
+    const corpo = document.getElementById('corpo-stake');
+    if (!corpo) return;
+    corpo.innerHTML = '';
+
+    ESTRATEGIAS_STAKE.forEach(est => {
+        const stake      = red * est.mult;
+        const lucroMedio = stake * ((est.lucroMin + est.lucroMax) / 2);
+        const redMedio   = red;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="color:var(--accent-amber); font-family:var(--font-mono); font-weight:600;">${est.faixa}</td>
+            <td class="stake-val-destaque">R$ ${stake.toFixed(2)}</td>
+            <td class="lucro-medio-cell">R$ ${lucroMedio.toFixed(2)}</td>
+            <td class="red-medio-cell">R$ ${redMedio.toFixed(2)}</td>
+            <td style="color:var(--green); font-size:12px;">${est.lucroLabel}</td>
+            <td style="color:var(--red); font-size:12px;">${est.redLabel}</td>
+        `;
+        corpo.appendChild(tr);
+    });
+}
+
+// Sincronizar input e slider da aba Stake
+const stakeInput  = document.getElementById('stake-red-input');
+const stakeSlider = document.getElementById('stake-red-slider');
+
+if (stakeInput && stakeSlider) {
+    stakeInput.addEventListener('input', () => {
+        stakeSlider.value = stakeInput.value;
+        renderizarStake();
+    });
+    stakeSlider.addEventListener('input', () => {
+        stakeInput.value = stakeSlider.value;
+        renderizarStake();
+    });
+}
+
+
     const lucroLiquidoReal = calcularLucroLiquidoReal();
     const elLucroLiq = document.getElementById('lucro-liquido');
     if (elLucroLiq) {
@@ -889,12 +969,12 @@ window.ordenarTabela = (coluna) => {
 };
 
 function switchTab(activeBtnId, activeContentId) {
-    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-operacoes', 'conteudo-movimentacoes', 'conteudo-configuracoes'].forEach(id => {
+    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-operacoes', 'conteudo-movimentacoes', 'conteudo-stake', 'conteudo-configuracoes'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = 'none';
     });
 
-    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-operacoes', 'btn-aba-mov', 'btn-aba-config'].forEach(id => {
+    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-operacoes', 'btn-aba-mov', 'btn-aba-stake', 'btn-aba-config'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.classList.remove('active');
     });
@@ -919,6 +999,12 @@ if(btnRank) btnRank.addEventListener('click', () => switchTab('btn-aba-ranking',
 
 const btnOps = document.getElementById('btn-aba-operacoes');
 if(btnOps) btnOps.addEventListener('click', () => switchTab('btn-aba-operacoes', 'conteudo-operacoes'));
+
+const btnStake = document.getElementById('btn-aba-stake');
+if(btnStake) btnStake.addEventListener('click', () => {
+    switchTab('btn-aba-stake', 'conteudo-stake');
+    renderizarStake();
+});
 
 const btnMov = document.getElementById('btn-aba-mov');
 if(btnMov) btnMov.addEventListener('click', () => switchTab('btn-aba-mov', 'conteudo-movimentacoes'));
