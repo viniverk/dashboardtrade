@@ -160,15 +160,16 @@ function renderizarStake() {
     // Chips de banca
     const bancaMin   = red * 25;
     const bancaIdeal = red * 50;
+    const bancaRealTotal = bancaNuvem + bancaNubank;
     document.getElementById('stake-banca-min').innerText   = `R$ ${bancaMin.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
     document.getElementById('stake-banca-ideal').innerText = `R$ ${bancaIdeal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-    document.getElementById('stake-banca-atual').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+    document.getElementById('stake-banca-atual').innerText = `R$ ${bancaRealTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
 
     const statusEl = document.getElementById('stake-banca-status');
     if (statusEl) {
-        if (bancaNuvem >= bancaIdeal)      { statusEl.innerText = '✅ Banca Ideal';    statusEl.style.color = 'var(--green)'; }
-        else if (bancaNuvem >= bancaMin)   { statusEl.innerText = '⚠️ Acima da mín.'; statusEl.style.color = 'var(--accent-amber)'; }
-        else                               { statusEl.innerText = '❌ Abaixo da mín.'; statusEl.style.color = 'var(--red)'; }
+        if (bancaRealTotal >= bancaIdeal)      { statusEl.innerText = '✅ Banca Ideal';    statusEl.style.color = 'var(--green)'; }
+        else if (bancaRealTotal >= bancaMin)   { statusEl.innerText = '⚠️ Acima da mín.'; statusEl.style.color = 'var(--accent-amber)'; }
+        else                                   { statusEl.innerText = '❌ Abaixo da mín.'; statusEl.style.color = 'var(--red)'; }
     }
 
     // Grid de cards
