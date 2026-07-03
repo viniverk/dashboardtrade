@@ -63,6 +63,7 @@
                 <button id="btn-aba-ranking" class="tab-btn">🏆 Ranking</button>
                 <button id="btn-aba-operacoes" class="tab-btn">📋 Operações</button>
                 <button id="btn-aba-mov" class="tab-btn">💸 Movimentações</button>
+                <button id="btn-aba-stake" class="tab-btn">🎯 Stake</button>
                 <button id="btn-aba-config" class="tab-btn">⚙️ Configurações</button>
             </div>
         </nav>
@@ -300,6 +301,76 @@
                     </thead>
                     <tbody id="corpo-tabela-mov"></tbody>
                 </table>
+            </div>
+        </div>
+
+        <div id="conteudo-stake" style="display:none; margin-top: 20px;">
+
+            <!-- Input + Bancas -->
+            <div class="stake-topo">
+                <div class="card card--stake-input">
+                    <h3>💸 Red Aceitável por Operação</h3>
+                    <p class="hint">Valor aproximado que você aceita perder ao tomar 1 gol.</p>
+                    <div class="input-money" style="margin-top: 10px;">
+                        <span>R$</span>
+                        <input type="number" id="stake-red-input" value="60" step="5" min="1">
+                    </div>
+                    <input type="range" id="stake-red-slider" min="10" max="500" value="60" step="5" class="stake-slider">
+                </div>
+                <div class="card card--stake-banca-min">
+                    <h3>🏦 Banca Mínima</h3>
+                    <p class="hint">25× o Red Aceitável</p>
+                    <p id="stake-banca-min" class="stake-banca-val">R$ 0,00</p>
+                </div>
+                <div class="card card--stake-banca-ideal">
+                    <h3>🏆 Banca Ideal</h3>
+                    <p class="hint">50× o Red Aceitável</p>
+                    <p id="stake-banca-ideal" class="stake-banca-val">R$ 0,00</p>
+                </div>
+                <div class="card card--stake-banca-atual">
+                    <h3>📊 Sua Banca Betfair</h3>
+                    <p class="hint">Valor atual salvo</p>
+                    <p id="stake-banca-atual" class="stake-banca-val">R$ 0,00</p>
+                    <span id="stake-banca-status" class="stake-status"></span>
+                </div>
+            </div>
+
+            <!-- Tabela de Estratégias -->
+            <div class="table-container" style="margin-top: 18px;">
+                <h3>Simulação de Stakes por Estratégia</h3>
+                <table id="tabela-stake">
+                    <thead>
+                        <tr>
+                            <th>Odds de Base</th>
+                            <th>Valor Stake</th>
+                            <th>Lucro Médio</th>
+                            <th>Red Médio</th>
+                            <th>Lucros Possíveis</th>
+                            <th>Reds Possíveis</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpo-stake"></tbody>
+                </table>
+            </div>
+
+            <!-- Odds pré-jogo -->
+            <div class="card" style="margin-top: 18px;">
+                <h3 style="font-size:13px; text-transform:none; color:var(--text-muted); margin-bottom:12px;">📋 Odds Pré-Jogo · De Abertura</h3>
+                <div class="stake-odds-grid">
+                    <div class="stake-odd-item">
+                        <span class="stake-odd-label">Lay Parelho 1º Tempo</span>
+                        <span class="stake-odd-val">Fav. Parelho <strong>2.50 × 3.00</strong> Z. Parelho</span>
+                    </div>
+                    <div class="stake-odd-item">
+                        <span class="stake-odd-label">Lay Zebra 1º Tempo</span>
+                        <span class="stake-odd-val">Favorito <strong>1.65 × 6.5</strong> Zebra</span>
+                    </div>
+                    <div class="stake-odd-item">
+                        <span class="stake-odd-label">Lay Super Zebra 1º Tempo</span>
+                        <span class="stake-odd-val">S. Favorito <strong>1.15 × 15+</strong> S. Zebra</span>
+                    </div>
+                </div>
+                <p class="hint" style="margin-top: 10px;">* Exceto a estratégia Vovó, a relação green/red está em 2 para 1 e 3 para 1 · O RED MÉDIO é o pior cenário, assim controlamos também o emocional.</p>
             </div>
         </div>
 
