@@ -153,12 +153,11 @@ const ESTRATEGIAS_STAKE = [
 
 function renderizarStake() {
     const inputEl  = document.getElementById('stake-red-input');
-    const sliderEl = document.getElementById('stake-red-slider');
     if (!inputEl) return;
 
     const red = parseFloat(inputEl.value) || 60;
 
-    // Bancas
+    // Chips de banca
     const bancaMin   = red * 25;
     const bancaIdeal = red * 50;
     document.getElementById('stake-banca-min').innerText   = `R$ ${bancaMin.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
@@ -167,38 +166,59 @@ function renderizarStake() {
 
     const statusEl = document.getElementById('stake-banca-status');
     if (statusEl) {
-        if (bancaNuvem >= bancaIdeal) {
-            statusEl.innerText      = '✅ Banca Ideal atingida';
-            statusEl.style.color    = 'var(--green)';
-        } else if (bancaNuvem >= bancaMin) {
-            statusEl.innerText      = '⚠️ Acima da mínima';
-            statusEl.style.color    = 'var(--accent-amber)';
-        } else {
-            statusEl.innerText      = '❌ Abaixo da mínima';
-            statusEl.style.color    = 'var(--red)';
-        }
+        if (bancaNuvem >= bancaIdeal)      { statusEl.innerText = '✅ Banca Ideal';    statusEl.style.color = 'var(--green)'; }
+        else if (bancaNuvem >= bancaMin)   { statusEl.innerText = '⚠️ Acima da mín.'; statusEl.style.color = 'var(--accent-amber)'; }
+        else                               { statusEl.innerText = '❌ Abaixo da mín.'; statusEl.style.color = 'var(--red)'; }
     }
 
-    // Tabela
-    const corpo = document.getElementById('corpo-stake');
-    if (!corpo) return;
-    corpo.innerHTML = '';
+    // Grid de cards
+    const grid = document.getElementById('stake-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
 
     ESTRATEGIAS_STAKE.forEach(est => {
         const stake      = red * est.mult;
-        const lucroMedio = stake * ((est.lucroMin + est.lucroMax) / 2);
-        const redMedio   = red;
+        const lucroMin   = stake * est.lucroMin;
+        const lucroMax   = stake * est.lucroMax;
+        const lucroMedio = (lucroMin + lucroMax) / 2;
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td style="color:var(--accent-amber); font-family:var(--font-mono); font-weight:600;">${est.faixa}</td>
-            <td class="stake-val-destaque">R$ ${stake.toFixed(2)}</td>
-            <td class="lucro-medio-cell">R$ ${lucroMedio.toFixed(2)}</td>
-            <td class="red-medio-cell">R$ ${redMedio.toFixed(2)}</td>
-            <td style="color:var(--green); font-size:12px;">${est.lucroLabel}</td>
-            <td style="color:var(--red); font-size:12px;">${est.redLabel}</td>
+        const card = document.createElement('div');
+        card.className = 'stake-card';
+        card.innerHTML = `
+            <div class="stake-card-faixa">Odds ${est.faixa}</div>
+
+            <div>
+                <div class="stake-card-valor">
+                    R$ ${stake.toFixed(2)}
+                    <span>stake</span>
+                </div>
+            </div>
+
+            <div class="stake-card-divider"></div>
+
+            <div class="stake-card-metricas">
+                <div class="stake-metrica">
+                    <span class="stake-metrica-label">Lucro Médio</span>
+                    <span class="stake-metrica-val stake-metrica-val--green">R$ ${lucroMedio.toFixed(2)}</span>
+                </div>
+                <div class="stake-metrica">
+                    <span class="stake-metrica-label">Red Médio</span>
+                    <span class="stake-metrica-val stake-metrica-val--red">R$ ${red.toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div class="stake-card-ranges">
+                <div class="stake-range-item">
+                    <span class="stake-range-label">Lucros</span>
+                    <span style="color:var(--green); font-size:12px; font-weight:600;">${est.lucroLabel}</span>
+                </div>
+                <div class="stake-range-item">
+                    <span class="stake-range-label">Reds</span>
+                    <span style="color:var(--red); font-size:12px; font-weight:600;">${est.redLabel}</span>
+                </div>
+            </div>
         `;
-        corpo.appendChild(tr);
+        grid.appendChild(card);
     });
 }
 
