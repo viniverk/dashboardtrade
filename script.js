@@ -218,6 +218,7 @@ if (stakeInput && stakeSlider) {
 }
 
 
+function atualizarLucroLiquidoReal() {
     const lucroLiquidoReal = calcularLucroLiquidoReal();
     const elLucroLiq = document.getElementById('lucro-liquido');
     if (elLucroLiq) {
