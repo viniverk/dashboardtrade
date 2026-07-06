@@ -26,6 +26,7 @@ const TAXA_COMISSAO_BETFAIR = 0.065; // 6.5% sobre cada operação ganha
 let bancaNuvem = 1000.00; 
 let bancaInicialNuvem = 750.00; 
 let bancaNubank = 0.00;
+let redAceitavel = 60;
 let metaMensal = 0;
 let metasPorMes = {};
 let movimentacoes = [];
@@ -223,6 +224,17 @@ function renderizarStake() {
     });
 }
 
+async function salvarRedAceitavel(valor) {
+    if (!usuarioAtual) return;
+    redAceitavel = valor;
+    try {
+        const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
+        await setDoc(docRef, { redAceitavel: valor }, { merge: true });
+    } catch (e) {
+        console.error("Erro ao salvar red aceitável:", e);
+    }
+}
+
 // Sincronizar input e slider da aba Stake
 const stakeInput  = document.getElementById('stake-red-input');
 const stakeSlider = document.getElementById('stake-red-slider');
@@ -231,10 +243,12 @@ if (stakeInput && stakeSlider) {
     stakeInput.addEventListener('input', () => {
         stakeSlider.value = stakeInput.value;
         renderizarStake();
+        salvarRedAceitavel(parseFloat(stakeInput.value) || 60);
     });
     stakeSlider.addEventListener('input', () => {
         stakeInput.value = stakeSlider.value;
         renderizarStake();
+        salvarRedAceitavel(parseFloat(stakeSlider.value) || 60);
     });
 }
 
@@ -617,17 +631,25 @@ async function puxarBancaDoFirebase(user) {
             bancaNuvem = parseFloat(docSnap.data().valorBanca || 1000);
             bancaInicialNuvem = parseFloat(docSnap.data().valorBancaInicial || 750);
             bancaNubank = parseFloat(docSnap.data().valorNubank || 0);
+            redAceitavel = parseFloat(docSnap.data().redAceitavel || 60);
             metasPorMes = docSnap.data().metasPorMes || {};
         } else {
             bancaNuvem = 1000;
             bancaInicialNuvem = 750;
             bancaNubank = 0;
+            redAceitavel = 60;
             metasPorMes = {};
         }
         
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
         document.getElementById('input-banca-inicial').value = bancaInicialNuvem.toFixed(2);
         document.getElementById('input-banca-nubank').value = bancaNubank.toFixed(2);
+
+        // Preencher campo de stake com último red salvo
+        const stakeInputEl = document.getElementById('stake-red-input');
+        const stakeSliderEl = document.getElementById('stake-red-slider');
+        if (stakeInputEl) stakeInputEl.value = redAceitavel;
+        if (stakeSliderEl) stakeSliderEl.value = redAceitavel;
 
         // Derivar metaMensal sempre do mapa de metas por mês
         const chaveHoje = chaveDoMesAtual();
