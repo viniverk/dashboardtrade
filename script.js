@@ -253,6 +253,124 @@ if (stakeInput && stakeSlider) {
 }
 
 
+function atualizarDrawdown(filtradas) {
+    const grid = document.getElementById('drawdown-grid');
+    if (!grid) return;
+
+    if (filtradas.length === 0) {
+        grid.innerHTML = `<span style="color:var(--text-faint); font-size:13px;">Sem operações para calcular.</span>`;
+        return;
+    }
+
+    // Ordenar por data e construir curva de P&L acumulado por dia
+    const porData = {};
+    filtradas.forEach(op => {
+        if (!porData[op.dataLimpa]) porData[op.dataLimpa] = 0;
+        porData[op.dataLimpa] += op.pnl;
+    });
+
+    const datasOrdenadas = Object.keys(porData).sort((a, b) => {
+        const parseDt = d => {
+            const p = d.split('-');
+            if (p.length < 3) return 0;
+            return new Date('20' + p[2], monthOrder[p[1].toLowerCase()], parseInt(p[0])).getTime();
+        };
+        return parseDt(a) - parseDt(b);
+    });
+
+    // Calcular curva acumulada e drawdown
+    let pnlAcum = 0;
+    let pico = 0;
+    let picoDt = datasOrdenadas[0];
+    let maxDrawdown = 0;
+    let maxDrawdownPct = 0;
+    let drawdownInicio = datasOrdenadas[0];
+    let drawdownFundo = datasOrdenadas[0];
+    let fundoPnl = 0;
+    let fundoPico = 0;
+
+    // Para calcular duração e recuperação
+    let emDrawdown = false;
+    let drawdownInicioAtual = null;
+    let picoAtual = 0;
+    let picoAtualDt = null;
+    let melhorDrawdownDuracao = 0;
+    let drawdownDuracaoAtual = 0;
+    let recoveryDt = null;
+    let melhorRecoveryDt = null;
+
+    datasOrdenadas.forEach((dt, i) => {
+        pnlAcum += porData[dt];
+
+        if (pnlAcum >= pico) {
+            // Novo pico — se estava em drawdown, registrar recuperação
+            if (emDrawdown) {
+                recoveryDt = dt;
+                emDrawdown = false;
+            }
+            pico = pnlAcum;
+            picoDt = dt;
+            picoAtual = pnlAcum;
+            picoAtualDt = dt;
+        } else {
+            // Em drawdown
+            const dd = pico - pnlAcum;
+            const ddPct = pico > 0 ? (dd / pico) * 100 : 0;
+
+            if (!emDrawdown) {
+                emDrawdown = true;
+                drawdownInicioAtual = picoDt;
+                drawdownDuracaoAtual = 0;
+            }
+            drawdownDuracaoAtual++;
+
+            if (dd > maxDrawdown) {
+                maxDrawdown    = dd;
+                maxDrawdownPct = ddPct;
+                drawdownInicio = picoDt;
+                drawdownFundo  = dt;
+                fundoPnl       = pnlAcum;
+                fundoPico      = pico;
+                melhorDrawdownDuracao = drawdownDuracaoAtual;
+                melhorRecoveryDt = recoveryDt;
+            }
+        }
+    });
+
+    // Formatar datas
+    const formatarDt = (dtStr) => {
+        if (!dtStr) return '—';
+        const p = dtStr.split('-');
+        return p.length === 3 ? `${p[0]}/${p[1]}/${'20' + p[2]}` : dtStr;
+    };
+
+    const semRecuperar = emDrawdown ? '(ainda em recuperação)' : melhorRecoveryDt ? `Rec.: ${formatarDt(melhorRecoveryDt)}` : '—';
+
+    grid.innerHTML = `
+        <div class="drawdown-item" style="border-color: rgba(255,92,114,0.3); background: rgba(255,92,114,0.07);">
+            <span class="drawdown-item-label">Drawdown Máximo (R$)</span>
+            <span class="drawdown-item-val" style="color:var(--red);">- R$ ${maxDrawdown.toFixed(2)}</span>
+            <span class="drawdown-item-sub">De ${formatarDt(drawdownInicio)} até ${formatarDt(drawdownFundo)}</span>
+        </div>
+        <div class="drawdown-item" style="border-color: rgba(255,92,114,0.3); background: rgba(255,92,114,0.07);">
+            <span class="drawdown-item-label">Drawdown Máximo (%)</span>
+            <span class="drawdown-item-val" style="color:var(--red);">- ${maxDrawdownPct.toFixed(2)}%</span>
+            <span class="drawdown-item-sub">Em relação ao pico de R$ ${fundoPico.toFixed(2)}</span>
+        </div>
+        <div class="drawdown-item">
+            <span class="drawdown-item-label">Duração</span>
+            <span class="drawdown-item-val" style="color:var(--accent-amber);">${melhorDrawdownDuracao} dia${melhorDrawdownDuracao !== 1 ? 's' : ''}</span>
+            <span class="drawdown-item-sub">${semRecuperar}</span>
+        </div>
+        <div class="drawdown-item">
+            <span class="drawdown-item-label">Fundo da Queda</span>
+            <span class="drawdown-item-val" style="color:var(--text-primary);">R$ ${fundoPnl.toFixed(2)}</span>
+            <span class="drawdown-item-sub">P&L acumulado no pior dia</span>
+        </div>
+    `;
+}
+
+
 function atualizarLucroLiquidoReal() {
     const lucroLiquidoReal = calcularLucroLiquidoReal();
     const elLucroLiq = document.getElementById('lucro-liquido');
@@ -846,6 +964,7 @@ function aplicarFiltros() {
     atualizarMetaMensal(filtradas);
     atualizarResumoMensal(filtradas);
     atualizarWinRate(filtradas);
+    atualizarDrawdown(filtradas);
 
     // LUCRO MÉDIO DIÁRIO = Lucro Bruto ÷ dias únicos com operações
     const diasUnicos = new Set(filtradas.map(op => op.dataLimpa)).size;
