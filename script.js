@@ -1145,12 +1145,12 @@ window.ordenarTabela = (coluna) => {
 };
 
 function switchTab(activeBtnId, activeContentId) {
-    ['conteudo-dashboard', 'conteudo-ranking', 'conteudo-operacoes', 'conteudo-movimentacoes', 'conteudo-stake', 'conteudo-configuracoes'].forEach(id => {
+    ['conteudo-dashboard', 'conteudo-detalhada', 'conteudo-ranking', 'conteudo-operacoes', 'conteudo-movimentacoes', 'conteudo-stake', 'conteudo-configuracoes'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = 'none';
     });
 
-    ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-operacoes', 'btn-aba-mov', 'btn-aba-stake', 'btn-aba-config'].forEach(id => {
+    ['btn-aba-dashboard', 'btn-aba-detalhada', 'btn-aba-ranking', 'btn-aba-operacoes', 'btn-aba-mov', 'btn-aba-stake', 'btn-aba-config'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.classList.remove('active');
     });
@@ -1162,13 +1162,16 @@ function switchTab(activeBtnId, activeContentId) {
     if(activeBtn) activeBtn.classList.add('active');
 
     // Mostrar filtros só nas abas que fazem uso deles
-    const abasComFiltro = ['btn-aba-dashboard', 'btn-aba-ranking', 'btn-aba-operacoes'];
+    const abasComFiltro = ['btn-aba-dashboard', 'btn-aba-detalhada', 'btn-aba-ranking', 'btn-aba-operacoes'];
     const filtros = document.querySelector('.filtros-container');
     if (filtros) filtros.style.display = abasComFiltro.includes(activeBtnId) ? 'flex' : 'none';
 }
 
 const btnDash = document.getElementById('btn-aba-dashboard');
 if(btnDash) btnDash.addEventListener('click', () => switchTab('btn-aba-dashboard', 'conteudo-dashboard'));
+
+const btnDetalhada = document.getElementById('btn-aba-detalhada');
+if(btnDetalhada) btnDetalhada.addEventListener('click', () => switchTab('btn-aba-detalhada', 'conteudo-detalhada'));
 
 const btnRank = document.getElementById('btn-aba-ranking');
 if(btnRank) btnRank.addEventListener('click', () => switchTab('btn-aba-ranking', 'conteudo-ranking'));
