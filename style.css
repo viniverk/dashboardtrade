@@ -767,6 +767,82 @@ tbody tr:last-child td { border-bottom: none; }
 .meta-falta { color: var(--text-faint); }
 
 /* =========================================================
+   Win Rate por Estratégia + Drawdown
+   ========================================================= */
+
+.card--winrate {
+  margin-top: 18px;
+  padding: 20px 24px;
+}
+
+.card--winrate h3 {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+
+.winrate-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+  margin-left: 6px;
+}
+
+.winrate-barra-bg {
+  height: 6px;
+  background: var(--bg-surface-alt);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.winrate-barra-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.drawdown-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.drawdown-item {
+  flex: 1;
+  min-width: 160px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drawdown-item-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.drawdown-item-val {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.drawdown-item-sub {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+/* =========================================================
    Resumo por Mês
    ========================================================= */
 
@@ -944,6 +1020,61 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 .btn-excluir-mov:hover { border-color: var(--red); color: var(--red); }
+
+/* =========================================================
+   Drawdown
+   ========================================================= */
+
+.card--drawdown h3 {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.drawdown-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.drawdown-item {
+  flex: 1;
+  min-width: 160px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.drawdown-item--destaque {
+  border-color: rgba(255, 92, 114, 0.4);
+  background: rgba(255, 92, 114, 0.06);
+}
+
+.drawdown-item-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.drawdown-item-valor {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--red);
+}
+
+.drawdown-item-sub {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
 
 /* =========================================================
    Aba Stake — Calculadora
