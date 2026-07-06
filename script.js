@@ -824,6 +824,19 @@ function aplicarFiltros() {
     atualizarMetaMensal(filtradas);
     atualizarResumoMensal(filtradas);
     atualizarWinRate(filtradas);
+
+    // LUCRO MÉDIO DIÁRIO = Lucro Bruto ÷ dias únicos com operações
+    const diasUnicos = new Set(filtradas.map(op => op.dataLimpa)).size;
+    const lucroMedioDia = diasUnicos > 0 ? lucroBruto / diasUnicos : 0;
+    const elLucroMedioDia = document.getElementById('lucro-medio-dia');
+    const elLucroMedioDiaSub = document.getElementById('lucro-medio-dia-sub');
+    if (elLucroMedioDia) {
+        elLucroMedioDia.innerText = `R$ ${lucroMedioDia.toFixed(2)}`;
+        setPnlClass(elLucroMedioDia, lucroMedioDia);
+    }
+    if (elLucroMedioDiaSub) {
+        elLucroMedioDiaSub.innerText = `${diasUnicos} dia${diasUnicos !== 1 ? 's' : ''} de trade`;
+    }
 }
 
 function atualizarRanking(lista) {
