@@ -18,6 +18,7 @@ const provider = new GoogleAuthProvider();
 
 let todasOperacoes = [];
 let chart;
+let graficoAgrupamento = 'dia'; // 'dia' | 'mes' | 'ano'
 let sortDirection = 1;
 let usuarioAtual = null;
 
@@ -1026,39 +1027,64 @@ function atualizarRanking(lista) {
 
 function renderizarGrafico(lista, tipoGrafico) {
     const canvas = document.getElementById('meuGrafico');
-    if (!canvas) return; 
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    
     if (chart) chart.destroy();
 
-    let agrupadoPorData = {};
+    // Agrupar conforme o agrupamento selecionado
+    const agrupado = {};
     lista.forEach(o => {
-        if(!agrupadoPorData[o.dataLimpa]) agrupadoPorData[o.dataLimpa] = 0;
-        agrupadoPorData[o.dataLimpa] += o.pnl;
+        const partes = o.dataLimpa.split('-');
+        let chave;
+        if (graficoAgrupamento === 'dia') {
+            chave = o.dataLimpa;
+        } else if (graficoAgrupamento === 'mes') {
+            chave = partes.length === 3 ? `${partes[1]}/${partes[2]}` : o.dataLimpa;
+        } else {
+            chave = partes.length === 3 ? `20${partes[2]}` : o.dataLimpa;
+        }
+        if (!agrupado[chave]) agrupado[chave] = 0;
+        agrupado[chave] += o.pnl;
     });
 
-    const labels = Object.keys(agrupadoPorData).sort((a, b) => {
-        const numMesA = monthOrder[a.split('-')[1].toLowerCase()];
-        const numMesB = monthOrder[b.split('-')[1].toLowerCase()];
-        const valA = new Date("20" + a.split('-')[2], numMesA, a.split('-')[0]);
-        const valB = new Date("20" + b.split('-')[2], numMesB, b.split('-')[0]);
-        return valA - valB;
+    // Ordenar cronologicamente
+    const labels = Object.keys(agrupado).sort((a, b) => {
+        const toTs = s => {
+            if (graficoAgrupamento === 'dia') {
+                const p = s.split('-');
+                return p.length === 3 ? new Date('20' + p[2], monthOrder[p[1].toLowerCase()], p[0]).getTime() : 0;
+            } else if (graficoAgrupamento === 'mes') {
+                const [m, y] = s.split('/');
+                return new Date('20' + y, monthOrder[m.toLowerCase()], 1).getTime();
+            } else {
+                return parseInt(s);
+            }
+        };
+        return toTs(a) - toTs(b);
     });
-    
-    const valoresDiarios = labels.map(l => agrupadoPorData[l]);
-    let dadosParaGrafico = tipoGrafico === 'line' ? valoresDiarios.map((v, i, arr) => arr.slice(0, i + 1).reduce((a, b) => a + b, 0)) : valoresDiarios;
 
-    const corGrid = 'rgba(255, 255, 255, 0.06)';
+    const valores = labels.map(l => agrupado[l]);
+    const labelGrafico = {
+        dia: tipoGrafico === 'line' ? 'Evolução Acumulada (R$)' : 'Lucro por Dia (R$)',
+        mes: tipoGrafico === 'line' ? 'Evolução Acumulada (R$)' : 'Lucro por Mês (R$)',
+        ano: tipoGrafico === 'line' ? 'Evolução Acumulada (R$)' : 'Lucro por Ano (R$)',
+    }[graficoAgrupamento];
+
+    const dadosGrafico = tipoGrafico === 'line'
+        ? valores.map((v, i, arr) => arr.slice(0, i + 1).reduce((a, b) => a + b, 0))
+        : valores;
+
+    const corGrid  = 'rgba(255, 255, 255, 0.06)';
     const corTexto = '#8392ad';
 
     chart = new Chart(ctx, {
         type: tipoGrafico,
         data: {
-            labels: labels,
+            labels,
             datasets: [{
-                label: tipoGrafico === 'line' ? 'Evolução da Banca (R$)' : 'Lucro Diário (R$)',
-                data: dadosParaGrafico, 
-                backgroundColor: tipoGrafico === 'bar' ? valoresDiarios.map(v => v >= 0 ? '#2dd4a7' : '#ff5c72') : 'rgba(232, 163, 61, 0.15)',
+                label: labelGrafico,
+                data: dadosGrafico,
+                backgroundColor: tipoGrafico === 'bar' ? valores.map(v => v >= 0 ? '#2dd4a7' : '#ff5c72') : 'rgba(232, 163, 61, 0.15)',
                 borderColor: '#e8a33d',
                 borderWidth: 2,
                 fill: tipoGrafico === 'line',
@@ -1460,6 +1486,19 @@ if (btnOcultarBanca) {
 }
 
 inicializarTema();
+
+// Toggle Dia/Mês/Ano do gráfico principal
+['dia', 'mes', 'ano'].forEach(modo => {
+    const btn = document.getElementById(`btn-grafico-${modo}`);
+    if (btn) btn.addEventListener('click', () => {
+        graficoAgrupamento = modo;
+        ['dia', 'mes', 'ano'].forEach(m => {
+            const b = document.getElementById(`btn-grafico-${m}`);
+            if (b) b.classList.toggle('active', m === modo);
+        });
+        aplicarFiltros();
+    });
+});
 
 const btnDash = document.getElementById('btn-aba-dashboard');
 if(btnDash) btnDash.addEventListener('click', () => switchTab('btn-aba-dashboard', 'conteudo-dashboard'));
