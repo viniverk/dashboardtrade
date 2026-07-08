@@ -42,6 +42,31 @@
   --max-width: 1280px;
 }
 
+/* Tema Claro */
+[data-theme="light"] {
+  --bg-base: #f0f4f8;
+  --bg-surface: #ffffff;
+  --bg-surface-alt: #f5f7fa;
+  --bg-surface-hover: #edf1f7;
+  --border-subtle: #dde3ed;
+  --border-strong: #c4cdd9;
+
+  --text-primary: #1a2338;
+  --text-muted: #4a5672;
+  --text-faint: #8a96ab;
+
+  --accent-amber: #c97d1a;
+  --accent-amber-soft: rgba(201, 125, 26, 0.12);
+  --accent-blue: #2563eb;
+
+  --green: #0d9e77;
+  --green-soft: rgba(13, 158, 119, 0.10);
+  --red: #dc2626;
+  --red-soft: rgba(220, 38, 38, 0.10);
+
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.08);
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -55,7 +80,34 @@ body {
   padding: 24px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.3s ease, color 0.3s ease;
 }
+
+[data-theme="light"] body,
+body[data-theme="light"] {
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(37, 99, 235, 0.04), transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(201, 125, 26, 0.04), transparent 35%);
+}
+
+.btn-tema {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.btn-tema:hover { background: var(--bg-surface-hover); border-color: var(--accent-amber); }
+.btn-tema:active { transform: scale(0.92); }
 
 h1, h2, h3 {
   font-family: var(--font-display);
@@ -1022,8 +1074,76 @@ tbody tr:last-child td { border-bottom: none; }
 .btn-excluir-mov:hover { border-color: var(--red); color: var(--red); }
 
 /* =========================================================
-   Drawdown
+   Importar CSV
    ========================================================= */
+
+.importar-drop-zone {
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 36px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.importar-drop-zone:hover,
+.importar-drop-zone.drag-over {
+  border-color: var(--accent-amber);
+  background: var(--accent-amber-soft);
+}
+
+.importar-icone { font-size: 36px; }
+
+.importar-texto {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.importar-link {
+  color: var(--accent-amber);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.importar-sub {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.importar-resumo {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.importar-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.importar-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.importar-stat-val {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+}
 
 .card--drawdown h3 {
   text-transform: none;
