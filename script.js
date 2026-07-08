@@ -1465,6 +1465,13 @@ if (btnTema) {
 }
 
 // Toggle ocultar/exibir bancas
+// PWA — registrar Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+}
+
 function aplicarVisibilidadeBancas(ocultar) {
     ['banca-betfair-item', 'banca-real-item', 'banca-divider-1'].forEach(id => {
         const el = document.getElementById(id);
