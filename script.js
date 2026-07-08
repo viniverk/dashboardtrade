@@ -1247,7 +1247,7 @@ async function carregarHistoricoImportacoes() {
         corpo.innerHTML = '';
 
         if (snap.empty) {
-            corpo.innerHTML = `<tr><td colspan="5" style="color:var(--text-faint);padding:14px 10px;">Nenhuma importação realizada ainda.</td></tr>`;
+            corpo.innerHTML = `<tr><td colspan="6" style="color:var(--text-faint);padding:14px 10px;">Nenhuma importação realizada ainda.</td></tr>`;
             return;
         }
 
@@ -1261,11 +1261,43 @@ async function carregarHistoricoImportacoes() {
                 <td class="pnl-pos">${data.novas ?? 0}</td>
                 <td style="color:var(--text-faint);">${data.duplicadas ?? 0}</td>
                 <td>${data.totalHistorico ?? 0}</td>
+                <td><button class="btn-excluir-mov" data-id="${d.id}">Excluir</button></td>
             `;
             corpo.appendChild(tr);
         });
+
+        corpo.querySelectorAll('.btn-excluir-mov[data-id]').forEach(btn => {
+            btn.addEventListener('click', () => excluirRegistroImportacao(btn.dataset.id));
+        });
+
     } catch (e) {
         console.error("Erro ao carregar histórico de importações:", e);
+    }
+}
+
+async function excluirRegistroImportacao(id) {
+    if (!usuarioAtual || !confirm("Excluir este registro do histórico?")) return;
+    try {
+        await deleteDoc(doc(db, "operacoes_historico", usuarioAtual.uid, "importacoes", id));
+        await carregarHistoricoImportacoes();
+    } catch (e) {
+        console.error("Erro ao excluir registro:", e);
+        alert("Falha ao excluir.");
+    }
+}
+
+async function limparHistoricoImportacoes() {
+    if (!usuarioAtual || !confirm("Excluir TODO o histórico de importações?\n\nAtenção: isso remove apenas o registro de histórico, não as operações importadas.")) return;
+    try {
+        const ref  = collection(db, "operacoes_historico", usuarioAtual.uid, "importacoes");
+        const snap = await getDocs(ref);
+        const batch = writeBatch(db);
+        snap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+        await carregarHistoricoImportacoes();
+    } catch (e) {
+        console.error("Erro ao limpar histórico:", e);
+        alert("Falha ao limpar histórico.");
     }
 }
 
@@ -1536,6 +1568,9 @@ if(btnConfig) btnConfig.addEventListener('click', () => {
     switchTab('btn-aba-config', 'conteudo-configuracoes');
     carregarHistoricoImportacoes();
 });
+
+const btnLimparHistorico = document.getElementById('btn-limpar-historico');
+if(btnLimparHistorico) btnLimparHistorico.addEventListener('click', limparHistoricoImportacoes);
 
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
     const el = document.getElementById(id);
