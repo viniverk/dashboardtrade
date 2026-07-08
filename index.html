@@ -479,7 +479,10 @@
                 </div>
 
                 <div id="importar-historico-wrap" class="table-container" style="margin-top: 20px; padding: 0; box-shadow: none; border: none; background: transparent;">
-                    <h3 style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">Histórico de Importações</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3 style="font-size:13px; color:var(--text-muted); margin:0;">Histórico de Importações</h3>
+                        <button id="btn-limpar-historico" class="btn-excluir-mov" style="font-size:12px; padding:5px 12px;">🗑️ Limpar tudo</button>
+                    </div>
                     <table id="tabela-importacoes">
                         <thead>
                             <tr>
@@ -488,6 +491,7 @@
                                 <th>Novas ops</th>
                                 <th>Duplicadas</th>
                                 <th>Total no histórico</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody id="corpo-importacoes"></tbody>
