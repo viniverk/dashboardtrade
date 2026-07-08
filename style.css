@@ -458,10 +458,16 @@ select:focus { border-color: var(--accent-amber); }
   border: 1px solid var(--border-subtle);
   padding: 18px;
   border-radius: var(--radius-lg);
-  height: 400px;
-  max-height: 400px;
+  height: 420px;
+  max-height: 420px;
   position: relative;
   box-shadow: var(--shadow-card);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
 }
 
 /* =========================================================
