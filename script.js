@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy, writeBatch } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAvWlAUn5hzr-rWAaTZDAkVsPOJhlkzDC4",
@@ -1167,7 +1167,280 @@ function switchTab(activeBtnId, activeContentId) {
     if (filtros) filtros.style.display = abasComFiltro.includes(activeBtnId) ? 'flex' : 'none';
 }
 
-const btnDash = document.getElementById('btn-aba-dashboard');
+// =========================================================
+// Importação de CSV Betfair
+// =========================================================
+
+let operacoesPendentes = [];   // operações novas detectadas aguardando confirmação
+let nomeArquivoPendente = '';
+
+function parsearCSVBetfair(texto) {
+    const linhas = texto.split('\n');
+    const cabecalhos = linhas[0].toLowerCase().replace(/\r/g, '').split(',');
+
+    const idxData  = cabecalhos.findIndex(c => c.includes('resolvida'));
+    const idxDesc  = cabecalhos.findIndex(c => c.includes('descri'));
+    const idxOdd   = cabecalhos.findIndex(c => c.includes('cota'));
+    const idxResp  = cabecalhos.findIndex(c => c.includes('risco'));
+    const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
+    const idxStake = cabecalhos.findIndex(c => c.includes('valor apostado') || c.includes('stake'));
+
+    const operacoes = [];
+
+    for (let i = 1; i < linhas.length; i++) {
+        const lineClean = linhas[i].trim().replace(/\r/g, '');
+        if (!lineClean || lineClean.toLowerCase().includes('status')) continue;
+
+        const colunas = lineClean.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
+
+        const mercado = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim() : 'Desconhecido';
+        const dataHora = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : '';
+        const lucro    = tratarValor(colunas[idxLucro]);
+        const resp     = tratarValor(colunas[idxResp]);
+        const odd      = tratarValor(colunas[idxOdd]);
+        const stake    = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
+
+        if (!dataHora) continue;
+
+        // Chave única: mercado + data/hora completa
+        const chave = `${mercado}|${dataHora}`;
+        operacoes.push({ mercado, dataHora, lucro, resp, odd, stake, chave });
+    }
+
+    return operacoes;
+}
+
+async function carregarHistoricoImportacoes() {
+    if (!usuarioAtual) return;
+    try {
+        const ref  = collection(db, "operacoes_historico", usuarioAtual.uid, "importacoes");
+        const snap = await getDocs(query(ref, orderBy("dataImportacao", "desc")));
+        const corpo = document.getElementById('corpo-importacoes');
+        if (!corpo) return;
+        corpo.innerHTML = '';
+
+        if (snap.empty) {
+            corpo.innerHTML = `<tr><td colspan="5" style="color:var(--text-faint);padding:14px 10px;">Nenhuma importação realizada ainda.</td></tr>`;
+            return;
+        }
+
+        snap.docs.forEach(d => {
+            const data = d.data();
+            const tr = document.createElement('tr');
+            const dataFmt = data.dataImportacao ? new Date(data.dataImportacao).toLocaleString('pt-BR') : '—';
+            tr.innerHTML = `
+                <td>${dataFmt}</td>
+                <td style="font-size:12px; color:var(--text-faint);">${data.nomeArquivo || '—'}</td>
+                <td class="pnl-pos">${data.novas ?? 0}</td>
+                <td style="color:var(--text-faint);">${data.duplicadas ?? 0}</td>
+                <td>${data.totalHistorico ?? 0}</td>
+            `;
+            corpo.appendChild(tr);
+        });
+    } catch (e) {
+        console.error("Erro ao carregar histórico de importações:", e);
+    }
+}
+
+async function processarArquivoCSV(arquivo) {
+    nomeArquivoPendente = arquivo.name;
+    const texto = await arquivo.text();
+    const operacoesArquivo = parsearCSVBetfair(texto);
+
+    if (operacoesArquivo.length === 0) {
+        alert("Nenhuma operação encontrada neste arquivo. Verifique se é um CSV válido da Betfair.");
+        return;
+    }
+
+    // Carregar chaves já existentes no Firestore
+    const refOps = collection(db, "operacoes_historico", usuarioAtual.uid, "operacoes");
+    const snapExistentes = await getDocs(refOps);
+    const chavesExistentes = new Set(snapExistentes.docs.map(d => d.data().chave));
+
+    const novas      = operacoesArquivo.filter(op => !chavesExistentes.has(op.chave));
+    const duplicadas = operacoesArquivo.length - novas.length;
+
+    operacoesPendentes = novas;
+
+    // Mostrar preview
+    const preview  = document.getElementById('importar-preview');
+    const resumoEl = document.getElementById('importar-resumo');
+    if (preview)  preview.style.display  = 'block';
+    if (resumoEl) resumoEl.innerHTML = `
+        <div class="importar-stat">
+            <span class="importar-stat-label">Arquivo</span>
+            <span class="importar-stat-val" style="font-size:14px; color:var(--text-muted);">${arquivo.name}</span>
+        </div>
+        <div class="importar-stat">
+            <span class="importar-stat-label">Operações no arquivo</span>
+            <span class="importar-stat-val" style="color:var(--text-primary);">${operacoesArquivo.length}</span>
+        </div>
+        <div class="importar-stat">
+            <span class="importar-stat-label">✅ Novas</span>
+            <span class="importar-stat-val" style="color:var(--green);">${novas.length}</span>
+        </div>
+        <div class="importar-stat">
+            <span class="importar-stat-label">⚠️ Já existem</span>
+            <span class="importar-stat-val" style="color:var(--text-faint);">${duplicadas}</span>
+        </div>
+    `;
+}
+
+async function confirmarImportacao() {
+    if (!usuarioAtual || operacoesPendentes.length === 0) return;
+
+    const btn = document.getElementById('btn-confirmar-importacao');
+    if (btn) { btn.disabled = true; btn.innerText = '⏳ Importando...'; }
+
+    try {
+        const refOps = collection(db, "operacoes_historico", usuarioAtual.uid, "operacoes");
+
+        // Salvar em lotes de 500 (limite do Firestore)
+        const LOTE = 400;
+        for (let i = 0; i < operacoesPendentes.length; i += LOTE) {
+            const batch = writeBatch(db);
+            operacoesPendentes.slice(i, i + LOTE).forEach(op => {
+                const docRef = doc(refOps);
+                batch.set(docRef, op);
+            });
+            await batch.commit();
+        }
+
+        // Total no histórico após importação
+        const snapTotal = await getDocs(refOps);
+        const totalHistorico = snapTotal.size;
+
+        // Registrar no histórico de importações
+        const refImport = collection(db, "operacoes_historico", usuarioAtual.uid, "importacoes");
+        await addDoc(refImport, {
+            dataImportacao: new Date().toISOString(),
+            nomeArquivo:    nomeArquivoPendente,
+            novas:          operacoesPendentes.length,
+            duplicadas:     0,
+            totalHistorico
+        });
+
+        alert(`✅ ${operacoesPendentes.length} operações importadas com sucesso!`);
+
+        // Resetar UI
+        operacoesPendentes = [];
+        document.getElementById('importar-preview').style.display = 'none';
+        document.getElementById('importar-input').value = '';
+
+        // Recarregar dados do dashboard do Firestore
+        await carregarOperacoesDoFirestore();
+        await carregarHistoricoImportacoes();
+
+    } catch (e) {
+        console.error("Erro ao importar:", e);
+        alert("Falha ao importar operações. Tente novamente.");
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = '✅ Confirmar Importação'; }
+    }
+}
+
+async function carregarOperacoesDoFirestore() {
+    if (!usuarioAtual) return;
+    try {
+        const refOps = collection(db, "operacoes_historico", usuarioAtual.uid, "operacoes");
+        const snap   = await getDocs(refOps);
+
+        if (snap.empty) {
+            // Fallback: carregar do GitHub se não houver dados no Firestore
+            await carregarDadosDoGitHub();
+            return;
+        }
+
+        // Agrupar por mercado + dataLimpa (mesmo algoritmo do GitHub)
+        const agrupador = {};
+        snap.docs.forEach(d => {
+            const op = d.data();
+            const dataLimpa = op.dataHora ? op.dataHora.split(' ')[0] : 'Sem data';
+            const partesData = dataLimpa.split('-');
+            const ano = partesData.length === 3 ? "20" + partesData[2] : "Todos";
+            const mes = partesData.length === 3 ? partesData[1].toLowerCase() : "Todos";
+            const chave = `${op.mercado}|${dataLimpa}`;
+
+            if (!agrupador[chave]) {
+                agrupador[chave] = { mercado: op.mercado, data: op.dataHora, dataLimpa, ano, mes, pnl: 0, resp: 0, odd: 0, stake: 0 };
+            }
+            agrupador[chave].pnl   += op.lucro  || 0;
+            agrupador[chave].resp   = Math.max(agrupador[chave].resp,  op.resp  || 0);
+            agrupador[chave].odd    = Math.max(agrupador[chave].odd,   op.odd   || 0);
+            agrupador[chave].stake  = Math.max(agrupador[chave].stake, op.stake || 0);
+        });
+
+        todasOperacoes = Object.values(agrupador);
+        preencherFiltrosDinamicos();
+        aplicarFiltros();
+
+    } catch (e) {
+        console.error("Erro ao carregar operações do Firestore:", e);
+        await carregarDadosDoGitHub();
+    }
+}
+
+// Listeners da UI de importação
+const dropZone     = document.getElementById('importar-drop-zone');
+const inputArquivo = document.getElementById('importar-input');
+
+if (dropZone) {
+    dropZone.addEventListener('click', () => inputArquivo?.click());
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const arquivo = e.dataTransfer.files[0];
+        if (arquivo && arquivo.name.endsWith('.csv')) processarArquivoCSV(arquivo);
+        else alert("Por favor, selecione um arquivo .csv");
+    });
+}
+
+if (inputArquivo) {
+    inputArquivo.addEventListener('change', () => {
+        const arquivo = inputArquivo.files[0];
+        if (arquivo) processarArquivoCSV(arquivo);
+    });
+}
+
+const btnConfirmar = document.getElementById('btn-confirmar-importacao');
+if (btnConfirmar) btnConfirmar.addEventListener('click', confirmarImportacao);
+
+const btnCancelar = document.getElementById('btn-cancelar-importacao');
+if (btnCancelar) btnCancelar.addEventListener('click', () => {
+    operacoesPendentes = [];
+    document.getElementById('importar-preview').style.display = 'none';
+    document.getElementById('importar-input').value = '';
+});
+
+
+
+function aplicarTema(tema) {
+    document.documentElement.setAttribute('data-theme', tema);
+    const btn = document.getElementById('btn-tema');
+    if (btn) btn.textContent = tema === 'light' ? '☀️' : '🌙';
+}
+
+function inicializarTema() {
+    const temaSalvo = localStorage.getItem('deff-tema') || 'dark';
+    aplicarTema(temaSalvo);
+}
+
+const btnTema = document.getElementById('btn-tema');
+if (btnTema) {
+    btnTema.addEventListener('click', () => {
+        const temaAtual = document.documentElement.getAttribute('data-theme') || 'dark';
+        const novoTema  = temaAtual === 'dark' ? 'light' : 'dark';
+        aplicarTema(novoTema);
+        localStorage.setItem('deff-tema', novoTema);
+    });
+}
+
+inicializarTema();
+
+
 if(btnDash) btnDash.addEventListener('click', () => switchTab('btn-aba-dashboard', 'conteudo-dashboard'));
 
 const btnDetalhada = document.getElementById('btn-aba-detalhada');
@@ -1192,7 +1465,10 @@ const btnRegistrarMov = document.getElementById('btn-registrar-mov');
 if(btnRegistrarMov) btnRegistrarMov.addEventListener('click', registrarMovimentacao);
 
 const btnConfig = document.getElementById('btn-aba-config');
-if(btnConfig) btnConfig.addEventListener('click', () => switchTab('btn-aba-config', 'conteudo-configuracoes'));
+if(btnConfig) btnConfig.addEventListener('click', () => {
+    switchTab('btn-aba-config', 'conteudo-configuracoes');
+    carregarHistoricoImportacoes();
+});
 
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
     const el = document.getElementById(id);
@@ -1239,7 +1515,7 @@ document.getElementById('btn-login').addEventListener('click', () => {
         document.getElementById('dashboard').style.display = 'block';
         await puxarBancaDoFirebase(usuarioAtual);
         await carregarMovimentacoes(usuarioAtual);
-        carregarDadosDoGitHub();
+        await carregarOperacoesDoFirestore();
     }).catch(error => console.error("Erro no login:", error));
 });
 
@@ -1250,6 +1526,6 @@ onAuthStateChanged(auth, async (user) => {
         document.getElementById('dashboard').style.display = 'block';
         await puxarBancaDoFirebase(usuarioAtual);
         await carregarMovimentacoes(usuarioAtual);
-        carregarDadosDoGitHub();
+        await carregarOperacoesDoFirestore();
     }
 });
