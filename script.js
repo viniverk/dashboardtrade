@@ -1440,7 +1440,7 @@ if (btnTema) {
 
 inicializarTema();
 
-
+const btnDash = document.getElementById('btn-aba-dashboard');
 if(btnDash) btnDash.addEventListener('click', () => switchTab('btn-aba-dashboard', 'conteudo-dashboard'));
 
 const btnDetalhada = document.getElementById('btn-aba-detalhada');
