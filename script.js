@@ -1477,8 +1477,12 @@ if (btnCancelar) btnCancelar.addEventListener('click', () => {
 
 function aplicarTema(tema) {
     document.documentElement.setAttribute('data-theme', tema);
-    const btn = document.getElementById('btn-tema');
-    if (btn) btn.textContent = tema === 'light' ? '☀️' : '🌙';
+    const icones = { dark: '🌙', midnight: '💻', ocean: '🌊', sunset: '🌅', forest: '🌿', light: '☀️' };
+    const btnHeader = document.getElementById('btn-tema');
+    if (btnHeader) btnHeader.textContent = icones[tema] || '🌙';
+    document.querySelectorAll('.tema-card').forEach(card => {
+        card.classList.toggle('ativo', card.dataset.tema === tema);
+    });
 }
 
 function inicializarTema() {
@@ -1489,12 +1493,20 @@ function inicializarTema() {
 const btnTema = document.getElementById('btn-tema');
 if (btnTema) {
     btnTema.addEventListener('click', () => {
+        const temas = ['dark', 'midnight', 'ocean', 'sunset', 'forest', 'light'];
         const temaAtual = document.documentElement.getAttribute('data-theme') || 'dark';
-        const novoTema  = temaAtual === 'dark' ? 'light' : 'dark';
+        const novoTema  = temas[(temas.indexOf(temaAtual) + 1) % temas.length];
         aplicarTema(novoTema);
         localStorage.setItem('deff-tema', novoTema);
     });
 }
+
+document.querySelectorAll('.tema-card').forEach(card => {
+    card.addEventListener('click', () => {
+        aplicarTema(card.dataset.tema);
+        localStorage.setItem('deff-tema', card.dataset.tema);
+    });
+});
 
 // Toggle ocultar/exibir bancas
 // PWA — registrar Service Worker
@@ -1525,6 +1537,15 @@ if (btnOcultarBanca) {
 }
 
 inicializarTema();
+
+// Botões de tema nas configurações
+document.querySelectorAll('.tema-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const novoTema = btn.dataset.tema;
+        aplicarTema(novoTema);
+        localStorage.setItem('deff-tema', novoTema);
+    });
+});
 
 // Toggle Dia/Mês/Ano do gráfico principal
 ['dia', 'mes', 'ano'].forEach(modo => {
