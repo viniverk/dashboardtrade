@@ -42,8 +42,166 @@
   --max-width: 1280px;
 }
 
-/* Tema Claro */
-[data-theme="light"] {
+/* Tema Midnight */
+[data-theme="midnight"] {
+  --bg-base: #050810;
+  --bg-surface: #0d1117;
+  --bg-surface-alt: #161b27;
+  --bg-surface-hover: #1c2333;
+  --border-subtle: #1c2333;
+  --border-strong: #2d3748;
+  --text-primary: #e6edf3;
+  --text-muted: #7d8590;
+  --text-faint: #484f58;
+  --accent-amber: #00ff94;
+  --accent-amber-soft: rgba(0, 255, 148, 0.12);
+  --accent-blue: #58a6ff;
+  --green: #00ff94;
+  --green-soft: rgba(0, 255, 148, 0.10);
+  --red: #ff6b6b;
+  --red-soft: rgba(255, 107, 107, 0.12);
+  --shadow-card: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+/* Tema Ocean */
+[data-theme="ocean"] {
+  --bg-base: #020c18;
+  --bg-surface: #071a2f;
+  --bg-surface-alt: #0a2340;
+  --bg-surface-hover: #0c2a4d;
+  --border-subtle: #0c2a47;
+  --border-strong: #1a4a70;
+  --text-primary: #e0f2fe;
+  --text-muted: #7fb3d3;
+  --text-faint: #3a6d8f;
+  --accent-amber: #0ea5e9;
+  --accent-amber-soft: rgba(14, 165, 233, 0.14);
+  --accent-blue: #38bdf8;
+  --green: #34d399;
+  --green-soft: rgba(52, 211, 153, 0.12);
+  --red: #f87171;
+  --red-soft: rgba(248, 113, 113, 0.12);
+  --shadow-card: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+/* Tema Sunset */
+[data-theme="sunset"] {
+  --bg-base: #120a0a;
+  --bg-surface: #1e1010;
+  --bg-surface-alt: #2a1515;
+  --bg-surface-hover: #351c1c;
+  --border-subtle: #2e1a1a;
+  --border-strong: #4a2a2a;
+  --text-primary: #fde8d8;
+  --text-muted: #c4897a;
+  --text-faint: #7a4a40;
+  --accent-amber: #f97316;
+  --accent-amber-soft: rgba(249, 115, 22, 0.14);
+  --accent-blue: #fb923c;
+  --green: #4ade80;
+  --green-soft: rgba(74, 222, 128, 0.12);
+  --red: #f87171;
+  --red-soft: rgba(248, 113, 113, 0.12);
+  --shadow-card: 0 8px 24px rgba(0,0,0,0.45);
+}
+
+/* Tema Forest */
+[data-theme="forest"] {
+  --bg-base: #030e08;
+  --bg-surface: #071a0f;
+  --bg-surface-alt: #0a2415;
+  --bg-surface-hover: #0e2e1b;
+  --border-subtle: #0c2a1a;
+  --border-strong: #1a4a2a;
+  --text-primary: #dcfce7;
+  --text-muted: #6eb888;
+  --text-faint: #2d6a40;
+  --accent-amber: #22c55e;
+  --accent-amber-soft: rgba(34, 197, 94, 0.14);
+  --accent-blue: #4ade80;
+  --green: #22c55e;
+  --green-soft: rgba(34, 197, 94, 0.12);
+  --red: #f87171;
+  --red-soft: rgba(248, 113, 113, 0.12);
+  --shadow-card: 0 8px 24px rgba(0,0,0,0.45);
+}
+
+/* =========================================================
+   Seletor de Temas
+   ========================================================= */
+
+.tema-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+.tema-card {
+  background: var(--bg-surface-alt);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+  text-align: left;
+}
+
+.tema-card:hover { border-color: var(--accent-amber); transform: translateY(-2px); }
+.tema-card.ativo { border-color: var(--accent-amber); box-shadow: 0 0 0 3px var(--accent-amber-soft); }
+
+.tema-card-preview {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  height: 72px;
+}
+
+.tp-bg {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tp-bar {
+  height: 10px;
+  border-radius: 3px;
+  width: 100%;
+}
+
+.tp-chips {
+  display: flex;
+  gap: 3px;
+  flex: 1;
+}
+
+.tp-chip {
+  flex: 1;
+  border-radius: 3px;
+}
+
+.tp-line {
+  height: 4px;
+  border-radius: 2px;
+  width: 70%;
+  opacity: 0.8;
+}
+
+.tema-card-nome {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+}
+
+.tema-card-sub {
+  font-size: 11px;
+  color: var(--text-faint);
+}
   --bg-base: #f0f4f8;
   --bg-surface: #ffffff;
   --bg-surface-alt: #f5f7fa;
@@ -1078,6 +1236,55 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 .btn-excluir-mov:hover { border-color: var(--red); color: var(--red); }
+
+/* =========================================================
+   Seletor de Tema nas Configurações
+   ========================================================= */
+
+.tema-opcoes {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.tema-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: var(--bg-surface-alt);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.1s ease;
+  min-width: 120px;
+}
+
+.tema-btn:hover { border-color: var(--accent-amber); }
+.tema-btn:active { transform: scale(0.97); }
+.tema-btn.ativo { border-color: var(--accent-amber); background: var(--accent-amber-soft); }
+
+.tema-preview {
+  width: 72px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+}
+
+.tema-preview--dark {
+  background: linear-gradient(135deg, #0b1320 50%, #121b2e 50%);
+}
+
+.tema-preview--light {
+  background: linear-gradient(135deg, #f0f4f8 50%, #ffffff 50%);
+}
+
+.tema-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
 
 /* =========================================================
    Importar CSV
