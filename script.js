@@ -1438,6 +1438,27 @@ if (btnTema) {
     });
 }
 
+// Toggle ocultar/exibir bancas
+function aplicarVisibilidadeBancas(ocultar) {
+    ['banca-betfair-item', 'banca-real-item', 'banca-divider-1'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = ocultar ? 'none' : '';
+    });
+    const btn = document.getElementById('btn-ocultar-banca');
+    if (btn) btn.textContent = ocultar ? '🙈' : '👁️';
+}
+
+const btnOcultarBanca = document.getElementById('btn-ocultar-banca');
+if (btnOcultarBanca) {
+    aplicarVisibilidadeBancas(localStorage.getItem('deff-banca-oculta') === 'true');
+    btnOcultarBanca.addEventListener('click', () => {
+        const atual   = localStorage.getItem('deff-banca-oculta') === 'true';
+        const novo    = !atual;
+        localStorage.setItem('deff-banca-oculta', novo);
+        aplicarVisibilidadeBancas(novo);
+    });
+}
+
 inicializarTema();
 
 const btnDash = document.getElementById('btn-aba-dashboard');
