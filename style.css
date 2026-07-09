@@ -564,6 +564,11 @@ select:focus { border-color: var(--accent-amber); }
   margin-top: 18px;
 }
 
+/* KPI cards do dashboard — min-width menor para caber 6 em uma linha */
+.cards--kpi > .card {
+  min-width: 130px;
+}
+
 .card {
   flex: 1;
   min-width: 160px;
