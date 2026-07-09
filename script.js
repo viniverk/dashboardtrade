@@ -1477,8 +1477,19 @@ if (btnCancelar) btnCancelar.addEventListener('click', () => {
 
 function aplicarTema(tema) {
     document.documentElement.setAttribute('data-theme', tema);
+    const icones = {
+        dark:     '🌙',
+        midnight: '💻',
+        ocean:    '🌊',
+        sunset:   '🌅',
+        forest:   '🌿',
+        light:    '☀️'
+    };
     const btn = document.getElementById('btn-tema');
-    if (btn) btn.textContent = tema === 'light' ? '☀️' : '🌙';
+    if (btn) {
+        btn.textContent = icones[tema] || '🌙';
+        btn.title = `Tema: ${tema.charAt(0).toUpperCase() + tema.slice(1)} — clique para mudar`;
+    }
 }
 
 function inicializarTema() {
@@ -1486,11 +1497,13 @@ function inicializarTema() {
     aplicarTema(temaSalvo);
 }
 
+const TEMAS = ['dark', 'midnight', 'ocean', 'sunset', 'forest', 'light'];
+
 const btnTema = document.getElementById('btn-tema');
 if (btnTema) {
     btnTema.addEventListener('click', () => {
         const temaAtual = document.documentElement.getAttribute('data-theme') || 'dark';
-        const novoTema  = temaAtual === 'light' ? 'dark' : 'light';
+        const novoTema  = TEMAS[(TEMAS.indexOf(temaAtual) + 1) % TEMAS.length];
         aplicarTema(novoTema);
         localStorage.setItem('deff-tema', novoTema);
     });
