@@ -135,29 +135,25 @@
         <div id="conteudo-dashboard">
 
             <div class="cards">
-
                 <div class="card">
                     <h3>Lucro Bruto</h3>
                     <p id="lucro-bruto">R$ 0,00</p>
                 </div>
-
                 <div class="card card--muted">
-                    <h3 title="Calculado como: (Banca Betfair - Banca Inicial) + Total Sacado - Total Aportado. Saques e aportes não distorcem o cálculo.">Lucro Líquido Real</h3>
+                    <h3 title="Calculado como: (Banca Betfair - Banca Inicial) + Total Sacado - Total Aportado.">Lucro Líquido Real</h3>
                     <p id="lucro-liquido">R$ 0,00</p>
                 </div>
-
                 <div class="card">
-                    <h3 title="Calculado como: Lucro Bruto TOTAL da conta - Lucro Líquido Real. Não é afetado pelos filtros de estratégia/data.">Comissões Betfair</h3>
+                    <h3 title="Lucro Bruto TOTAL da conta - Lucro Líquido Real.">Comissões Betfair</h3>
                     <p id="comissoes-valor">R$ 0,00</p>
                     <span id="comissoes-pct" class="sub">0.00% do Bruto</span>
                 </div>
-
                 <div class="card">
                     <h3>Stake Média</h3>
                     <p id="media-responsabilidade">R$ 0,00</p>
                 </div>
                 <div class="card">
-                    <h3 title="Retorno sobre a Stake Média (Unidades Ganhas/Perdidas baseadas no Lucro Bruto)">ROI s/ Stake Média</h3>
+                    <h3 title="Retorno sobre a Stake Média">ROI s/ Stake Média</h3>
                     <p id="roi-stake">0,00%</p>
                 </div>
                 <div class="card card--muted">
@@ -182,14 +178,10 @@
 
         <!-- Visão Detalhada -->
         <div id="conteudo-detalhada" style="display:none; margin-top: 20px;">
-
-            <!-- Drawdown Máximo -->
             <div class="card card--drawdown">
                 <h3>📉 Drawdown Máximo <span class="winrate-hint">(baseado nas operações filtradas, ordem cronológica)</span></h3>
                 <div class="drawdown-grid" id="drawdown-grid"></div>
             </div>
-
-            <!-- Resumo por Mês -->
             <div class="section-resumo-mensal" style="margin-top: 18px;">
                 <div class="resumo-mensal-header">
                     <h3>Resumo por Mês</h3>
@@ -198,7 +190,6 @@
                         <button id="btn-resumo-grafico" class="toggle-btn">Gráfico</button>
                     </div>
                 </div>
-
                 <div id="resumo-tabela-wrapper">
                     <table id="tabela-resumo-mensal">
                         <thead>
@@ -215,21 +206,14 @@
                         <tbody id="corpo-resumo-mensal"></tbody>
                     </table>
                 </div>
-
                 <div id="resumo-grafico-wrapper" style="display:none; height: 300px; position: relative;">
                     <canvas id="graficoMensal"></canvas>
                 </div>
             </div>
-
         </div>
 
         <div id="conteudo-operacoes" style="display:none; margin-top: 20px;">
-
-            <!-- KPIs de Win Rate -->
-            <div class="cards" id="winrate-grid">
-                <!-- preenchido via JS -->
-            </div>
-
+            <div class="cards" id="winrate-grid"></div>
             <div class="table-container" style="margin-top: 18px;">
                 <h3>Listagem de Operações Filtradas</h3>
                 <table id="tabela-operacoes">
@@ -290,11 +274,10 @@
                     <span class="sub">Dinheiro novo colocado na banca</span>
                 </div>
                 <div class="card card--muted">
-                    <h3 title="Saques entram, aportes saem do cálculo do Lucro Líquido Real, pra não distorcerem a performance">Ajuste no Lucro Líquido</h3>
+                    <h3>Ajuste no Lucro Líquido</h3>
                     <p id="ajuste-liquido">R$ 0,00</p>
                 </div>
             </div>
-
             <div class="form-mov-container">
                 <h3>Registrar Movimentação</h3>
                 <div class="form-mov-grid">
@@ -323,7 +306,6 @@
                 </div>
                 <button id="btn-registrar-mov" class="btn-save">➕ Registrar Movimentação</button>
             </div>
-
             <div class="table-container">
                 <h3>Histórico de Movimentações</h3>
                 <table id="tabela-movimentacoes">
@@ -342,8 +324,6 @@
         </div>
 
         <div id="conteudo-stake" style="display:none; margin-top: 20px;">
-
-            <!-- Controle central -->
             <div class="stake-controle">
                 <div class="stake-controle-inner">
                     <span class="stake-controle-label">Red Aceitável por Operação</span>
@@ -370,118 +350,10 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Grid de painéis por faixa de odd -->
             <div class="stake-grid" id="stake-grid"></div>
-
         </div>
 
         <div id="conteudo-configuracoes" style="display:none; margin-top: 20px;">
-
-            <!-- Aparência -->
-            <div class="form-mov-container" style="margin-bottom: 20px;">
-                <h3>🎨 Tema do Dashboard</h3>
-                <p class="hint" style="margin-bottom: 18px;">Clique num tema para aplicar imediatamente. A preferência é salva automaticamente.</p>
-                <div class="tema-grid" id="tema-grid">
-
-                    <button class="tema-card" data-tema="dark">
-                        <div class="tema-card-preview">
-                            <div class="tp-bg" style="background:#0b1320;">
-                                <div class="tp-bar" style="background:#1d2a44;"></div>
-                                <div class="tp-chips">
-                                    <div class="tp-chip" style="background:#18233a; border:1px solid #243150;"></div>
-                                    <div class="tp-chip" style="background:#18233a; border:1px solid #243150;"></div>
-                                    <div class="tp-chip tp-chip--accent" style="background:#e8a33d33; border:1px solid #e8a33d88;"></div>
-                                </div>
-                                <div class="tp-line" style="background:#2dd4a7;"></div>
-                            </div>
-                        </div>
-                        <span class="tema-card-nome">🌙 Dark</span>
-                        <span class="tema-card-sub">Padrão · Azul escuro</span>
-                    </button>
-
-                    <button class="tema-card" data-tema="midnight">
-                        <div class="tema-card-preview">
-                            <div class="tp-bg" style="background:#050810;">
-                                <div class="tp-bar" style="background:#0d1117;"></div>
-                                <div class="tp-chips">
-                                    <div class="tp-chip" style="background:#0d1117; border:1px solid #1c2333;"></div>
-                                    <div class="tp-chip" style="background:#0d1117; border:1px solid #1c2333;"></div>
-                                    <div class="tp-chip tp-chip--accent" style="background:#00ff9433; border:1px solid #00ff9488;"></div>
-                                </div>
-                                <div class="tp-line" style="background:#00ff94;"></div>
-                            </div>
-                        </div>
-                        <span class="tema-card-nome">💻 Midnight</span>
-                        <span class="tema-card-sub">Preto · Verde neon</span>
-                    </button>
-
-                    <button class="tema-card" data-tema="ocean">
-                        <div class="tema-card-preview">
-                            <div class="tp-bg" style="background:#020c18;">
-                                <div class="tp-bar" style="background:#071a2f;"></div>
-                                <div class="tp-chips">
-                                    <div class="tp-chip" style="background:#071a2f; border:1px solid #0c2a47;"></div>
-                                    <div class="tp-chip" style="background:#071a2f; border:1px solid #0c2a47;"></div>
-                                    <div class="tp-chip tp-chip--accent" style="background:#0ea5e933; border:1px solid #0ea5e988;"></div>
-                                </div>
-                                <div class="tp-line" style="background:#0ea5e9;"></div>
-                            </div>
-                        </div>
-                        <span class="tema-card-nome">🌊 Ocean</span>
-                        <span class="tema-card-sub">Azul profundo · Cyan</span>
-                    </button>
-
-                    <button class="tema-card" data-tema="sunset">
-                        <div class="tema-card-preview">
-                            <div class="tp-bg" style="background:#120a0a;">
-                                <div class="tp-bar" style="background:#1e1010;"></div>
-                                <div class="tp-chips">
-                                    <div class="tp-chip" style="background:#1e1010; border:1px solid #2e1a1a;"></div>
-                                    <div class="tp-chip" style="background:#1e1010; border:1px solid #2e1a1a;"></div>
-                                    <div class="tp-chip tp-chip--accent" style="background:#f9731633; border:1px solid #f9731688;"></div>
-                                </div>
-                                <div class="tp-line" style="background:#f97316;"></div>
-                            </div>
-                        </div>
-                        <span class="tema-card-nome">🌅 Sunset</span>
-                        <span class="tema-card-sub">Vinho escuro · Laranja</span>
-                    </button>
-
-                    <button class="tema-card" data-tema="forest">
-                        <div class="tema-card-preview">
-                            <div class="tp-bg" style="background:#030e08;">
-                                <div class="tp-bar" style="background:#071a0f;"></div>
-                                <div class="tp-chips">
-                                    <div class="tp-chip" style="background:#071a0f; border:1px solid #0c2a1a;"></div>
-                                    <div class="tp-chip" style="background:#071a0f; border:1px solid #0c2a1a;"></div>
-                                    <div class="tp-chip tp-chip--accent" style="background:#22c55e33; border:1px solid #22c55e88;"></div>
-                                </div>
-                                <div class="tp-line" style="background:#22c55e;"></div>
-                            </div>
-                        </div>
-                        <span class="tema-card-nome">🌿 Forest</span>
-                        <span class="tema-card-sub">Verde escuro · Lima</span>
-                    </button>
-
-                    <button class="tema-card" data-tema="light">
-                        <div class="tema-card-preview">
-                            <div class="tp-bg" style="background:#f0f4f8;">
-                                <div class="tp-bar" style="background:#e2e8f0;"></div>
-                                <div class="tp-chips">
-                                    <div class="tp-chip" style="background:#fff; border:1px solid #dde3ed;"></div>
-                                    <div class="tp-chip" style="background:#fff; border:1px solid #dde3ed;"></div>
-                                    <div class="tp-chip tp-chip--accent" style="background:#c97d1a33; border:1px solid #c97d1a88;"></div>
-                                </div>
-                                <div class="tp-line" style="background:#0d9e77;"></div>
-                            </div>
-                        </div>
-                        <span class="tema-card-nome">☀️ Light</span>
-                        <span class="tema-card-sub">Claro · Âmbar</span>
-                    </button>
-
-                </div>
-            </div>
 
             <div class="cards">
                 <div class="card card--config-banca">
@@ -516,7 +388,7 @@
             <!-- Metas por mês -->
             <div class="form-mov-container" style="margin-top: 20px;">
                 <h3>🎯 Metas por Mês</h3>
-                <p class="hint" style="margin-bottom: 14px;">Defina uma meta diferente para cada mês. Salva independentemente das configurações acima.</p>
+                <p class="hint" style="margin-bottom: 14px;">Defina uma meta diferente para cada mês.</p>
                 <div class="form-mov-grid">
                     <div class="filtro-grupo">
                         <label for="meta-mes-sel">Mês:</label>
@@ -544,7 +416,6 @@
                     </div>
                 </div>
                 <button id="btn-salvar-meta-mes" class="btn-save">💾 Salvar Meta do Mês</button>
-
                 <div class="table-container" style="margin-top: 18px; padding: 0; box-shadow: none; border: none; background: transparent;">
                     <table id="tabela-metas-mensais">
                         <thead>
@@ -568,14 +439,12 @@
                     Selecione o arquivo CSV exportado da Betfair. Qualquer nome de arquivo funciona.<br>
                     O sistema detecta automaticamente as operações novas e ignora as que já existem no histórico.
                 </p>
-
                 <div class="importar-drop-zone" id="importar-drop-zone">
                     <span class="importar-icone">📂</span>
                     <span class="importar-texto">Arraste o CSV aqui ou <label for="importar-input" class="importar-link">clique para selecionar</label></span>
                     <span class="importar-sub">Qualquer arquivo .csv exportado da Betfair</span>
                     <input type="file" id="importar-input" accept=".csv" style="display:none;">
                 </div>
-
                 <div id="importar-preview" style="display:none; margin-top: 16px;">
                     <div class="importar-resumo" id="importar-resumo"></div>
                     <div style="display:flex; gap:10px; margin-top:14px;">
@@ -583,7 +452,6 @@
                         <button id="btn-cancelar-importacao" class="btn-excluir-mov" style="padding: 10px 18px;">Cancelar</button>
                     </div>
                 </div>
-
                 <div id="importar-historico-wrap" class="table-container" style="margin-top: 20px; padding: 0; box-shadow: none; border: none; background: transparent;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                         <h3 style="font-size:13px; color:var(--text-muted); margin:0;">Histórico de Importações</h3>
