@@ -34,6 +34,17 @@ let movimentacoes = [];
 let totalSaques = 0;
 let totalAportes = 0;
 let chartMensal;
+let estrategiasCustom = []; // estratégias personalizadas salvas no Firestore
+let filtroOpsEstrategia = 'TODAS'; // filtro ativo na aba Operações
+let estrategiasOverride = {}; // { "chave_op": "id_estrategia" } — atribuições manuais
+let estrategiasOps = {}; // { chave_op: estrategia_id } — overrides manuais
+
+// Estratégias base (sempre presentes)
+const ESTRATEGIAS_BASE = [
+    { id: 'MO',   nome: 'Match Odds',    emoji: '⚽', keywords: ['resultado', 'probabilidades', 'prolongamento'] },
+    { id: 'LG',   nome: 'Lay Goleada',   emoji: '🛡️', keywords: ['placar', 'correct score'] },
+    { id: 'UF',   nome: 'Under à Frente',emoji: '📉', keywords: ['mais/menos', 'over/under'] },
+];
 
 Chart.register(ChartDataLabels);
 
@@ -740,6 +751,105 @@ function renderizarTabelaMetas() {
     });
 }
 
+function todasEstrategias() {
+    return [...ESTRATEGIAS_BASE, ...estrategiasCustom];
+}
+
+function renderizarPillsEstrategias() {
+    const container = document.getElementById('ops-estrategia-pills');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Pill "Todas"
+    const pillTodas = document.createElement('button');
+    pillTodas.className = `pill-estrategia${filtroOpsEstrategia === 'TODAS' ? ' ativa' : ''}`;
+    pillTodas.textContent = '📋 Todas';
+    pillTodas.addEventListener('click', () => { filtroOpsEstrategia = 'TODAS'; renderizarPillsEstrategias(); aplicarFiltros(); });
+    container.appendChild(pillTodas);
+
+    todasEstrategias().forEach(est => {
+        const pill = document.createElement('button');
+        pill.className = `pill-estrategia${filtroOpsEstrategia === est.id ? ' ativa' : ''}`;
+        pill.textContent = `${est.emoji || ''} ${est.nome}`.trim();
+        pill.addEventListener('click', () => { filtroOpsEstrategia = est.id; renderizarPillsEstrategias(); aplicarFiltros(); });
+        container.appendChild(pill);
+    });
+}
+
+function renderizarTabelaEstrategias() {
+    const corpo = document.getElementById('corpo-estrategias');
+    if (!corpo) return;
+    corpo.innerHTML = '';
+
+    const todas = todasEstrategias();
+    if (todas.length === 0) {
+        corpo.innerHTML = `<tr><td colspan="4" style="color:var(--text-faint);padding:14px 10px;">Nenhuma estratégia definida.</td></tr>`;
+        return;
+    }
+
+    todas.forEach((est, idx) => {
+        const isBase = idx < ESTRATEGIAS_BASE.length;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-size:18px;">${est.emoji || '—'}</td>
+            <td style="font-weight:600;">${est.nome}</td>
+            <td style="font-size:12px; color:var(--text-faint);">${Array.isArray(est.keywords) ? est.keywords.join(', ') : est.keywords}</td>
+            <td>${isBase ? '<span style="font-size:11px;color:var(--text-faint);">padrão</span>' : `<button class="btn-excluir-mov" data-id="${est.id}">Excluir</button>`}</td>
+        `;
+        corpo.appendChild(tr);
+    });
+
+    corpo.querySelectorAll('.btn-excluir-mov[data-id]').forEach(btn => {
+        btn.addEventListener('click', () => excluirEstrategia(btn.dataset.id));
+    });
+}
+
+async function adicionarEstrategia() {
+    if (!usuarioAtual) return;
+    const nome = document.getElementById('estrat-nome').value.trim();
+    const keywords = document.getElementById('estrat-keywords').value.trim();
+    const emoji = document.getElementById('estrat-emoji').value.trim();
+
+    if (!nome) { alert("Informe o nome da estratégia."); return; }
+    if (!keywords) { alert("Informe ao menos uma palavra-chave."); return; }
+
+    const id = 'custom_' + Date.now();
+    const kws = keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+
+    estrategiasCustom.push({ id, nome, emoji, keywords: kws });
+
+    try {
+        const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
+        await setDoc(docRef, { estrategiasCustom }, { merge: true });
+
+        document.getElementById('estrat-nome').value = '';
+        document.getElementById('estrat-keywords').value = '';
+        document.getElementById('estrat-emoji').value = '';
+
+        renderizarTabelaEstrategias();
+        renderizarPillsEstrategias();
+        alert(`Estratégia "${nome}" adicionada!`);
+    } catch (e) {
+        console.error("Erro ao salvar estratégia:", e);
+        alert("Falha ao salvar estratégia.");
+    }
+}
+
+async function excluirEstrategia(id) {
+    if (!usuarioAtual || !confirm("Excluir esta estratégia?")) return;
+    estrategiasCustom = estrategiasCustom.filter(e => e.id !== id);
+    if (filtroOpsEstrategia === id) filtroOpsEstrategia = 'TODAS';
+    try {
+        const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
+        await setDoc(docRef, { estrategiasCustom }, { merge: true });
+        renderizarTabelaEstrategias();
+        renderizarPillsEstrategias();
+        aplicarFiltros();
+    } catch (e) {
+        console.error("Erro ao excluir estratégia:", e);
+    }
+}
+
 async function puxarBancaDoFirebase(user) {
     if (!user) return;
     try {
@@ -752,12 +862,18 @@ async function puxarBancaDoFirebase(user) {
             bancaNubank = parseFloat(docSnap.data().valorNubank || 0);
             redAceitavel = parseFloat(docSnap.data().redAceitavel || 60);
             metasPorMes = docSnap.data().metasPorMes || {};
+            estrategiasCustom = docSnap.data().estrategiasCustom || [];
+            estrategiasOverride = docSnap.data().estrategiasOverride || {};
+            estrategiasOps = docSnap.data().estrategiasOps || {};
         } else {
             bancaNuvem = 1000;
             bancaInicialNuvem = 750;
             bancaNubank = 0;
             redAceitavel = 60;
             metasPorMes = {};
+            estrategiasCustom = [];
+            estrategiasOverride = {};
+            estrategiasOps = {};
         }
         
         document.getElementById('input-banca-usuario').value = bancaNuvem.toFixed(2);
@@ -775,6 +891,8 @@ async function puxarBancaDoFirebase(user) {
         metaMensal = parseFloat(metasPorMes[chaveHoje] || 0);
 
         renderizarTabelaMetas();
+        renderizarPillsEstrategias();
+        renderizarTabelaEstrategias();
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
 
         // Pré-selecionar mês atual no select de metas
@@ -807,7 +925,9 @@ async function salvarConfiguracoesNoFirebase() {
             valorBanca: bancaNuvem,
             valorBancaInicial: bancaInicialNuvem,
             valorNubank: bancaNubank,
-            metasPorMes: metasPorMes
+            metasPorMes: metasPorMes,
+            estrategiasCustom,
+            estrategiasOverride
         }, { merge: true });
         
         document.getElementById('texto-banca-superior').innerText = `R$ ${bancaNuvem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
@@ -1106,33 +1226,140 @@ function renderizarGrafico(lista, tipoGrafico) {
     });
 }
 
+function detectarEstrategia(op) {
+    // Override manual tem prioridade
+    if (estrategiasOps[op.chave || op.mercado + '|' + op.dataLimpa]) {
+        return estrategiasOps[op.chave || op.mercado + '|' + op.dataLimpa];
+    }
+    const m = op.mercado.toLowerCase();
+    for (const est of todasEstrategias()) {
+        if (est.keywords.some(kw => m.includes(kw))) return est.id;
+    }
+    return null;
+}
+
+async function salvarEstrategiaOp(chave, estrategiaId) {
+    if (!usuarioAtual) return;
+    if (estrategiaId === '__auto__') {
+        delete estrategiasOps[chave];
+    } else {
+        estrategiasOps[chave] = estrategiaId;
+    }
+    try {
+        const docRef = doc(db, "configuracoes_banca", usuarioAtual.uid);
+        await setDoc(docRef, { estrategiasOps }, { merge: true });
+    } catch (e) {
+        console.error("Erro ao salvar estratégia da operação:", e);
+    }
+}
+
 function atualizarTabela(lista) {
     const corpo = document.getElementById('corpo-tabela');
     if(!corpo) return;
     corpo.innerHTML = "";
-    
-    lista.forEach(op => {
-        const tr = document.createElement('tr');
-        
-        let displayMercado = op.mercado;
-        displayMercado = displayMercado.replace(/Resultado da partida/ig, "Match Odds")
-                                       .replace(/Resultado/ig, "Match Odds")
-                                       .replace(/Placar correto/ig, "Lay Goleada")
-                                       .replace(/Placar/ig, "Lay Goleada")
-                                       .replace(/Prolongamento/ig, "Match Odds (Prol.)")
-                                       .replace(/Mais\/Menos/ig, "Under à Frente")
-                                       .replace(/Over\/Under/ig, "Under à Frente");
 
+    // Filtrar pela estratégia selecionada nos pills
+    let listaFiltrada = lista;
+    if (filtroOpsEstrategia !== 'TODAS') {
+        const est = todasEstrategias().find(e => e.id === filtroOpsEstrategia);
+        if (est) {
+            listaFiltrada = lista.filter(op => {
+                const chavOp = op.mercado + '|' + op.dataLimpa;
+                const override = estrategiasOps[chavOp];
+                if (override) return override === filtroOpsEstrategia;
+                const m = op.mercado.toLowerCase();
+                return est.keywords.some(kw => m.includes(kw));
+            });
+        }
+    }
+
+    listaFiltrada.forEach(op => {
+        const tr = document.createElement('tr');
+        const chaveOp = op.mercado + '|' + op.dataLimpa;
+
+        let displayMercado = op.mercado;
+        displayMercado = displayMercado
+            .replace(/Resultado da partida/ig, "Match Odds")
+            .replace(/Resultado/ig, "Match Odds")
+            .replace(/Placar correto/ig, "Lay Goleada")
+            .replace(/Placar/ig, "Lay Goleada")
+            .replace(/Prolongamento/ig, "Match Odds (Prol.)")
+            .replace(/Mais\/Menos/ig, "Under à Frente")
+            .replace(/Over\/Under/ig, "Under à Frente");
+
+        estrategiasCustom.forEach(est => {
+            est.keywords.forEach(kw => {
+                displayMercado = displayMercado.replace(new RegExp(kw, 'ig'), est.nome);
+            });
+        });
+
+        // Detectar estratégia (auto ou override)
+        const estId = detectarEstrategia({ ...op, chave: chaveOp });
+        const estObj = todasEstrategias().find(e => e.id === estId);
+        const temOverride = !!estrategiasOps[chaveOp];
+
+        // Classe do badge
+        const baseIds = ESTRATEGIAS_BASE.map(e => e.id);
+        let badgeClass = 'badge-none';
+        if (estId === 'MO') badgeClass = 'badge-MO';
+        else if (estId === 'LG') badgeClass = 'badge-LG';
+        else if (estId === 'UF') badgeClass = 'badge-UF';
+        else if (estId) badgeClass = 'badge-custom';
+
+        const badgeLabel = estObj ? `${estObj.emoji || ''} ${estObj.nome}`.trim() : '—';
         const pnlClass = op.pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+
+        // Opções do select
+        const opcoesSelect = todasEstrategias().map(e =>
+            `<option value="${e.id}" ${estId === e.id ? 'selected' : ''}>${e.emoji || ''} ${e.nome}</option>`
+        ).join('');
 
         tr.innerHTML = `
             <td>${displayMercado}</td>
+            <td>
+                <div class="estrat-cell" data-chave="${chaveOp}">
+                    <span class="estrat-badge ${badgeClass}" title="Clique para alterar a estratégia">${badgeLabel}${temOverride ? ' ✎' : ''}</span>
+                    <select class="estrat-select-inline" style="display:none;">
+                        <option value="__auto__">↩ Auto (detectar)</option>
+                        ${opcoesSelect}
+                    </select>
+                </div>
+            </td>
             <td>${op.data}</td>
             <td class="cell-odd">${op.odd > 0 ? op.odd.toFixed(2) : '-'}</td>
             <td>${op.resp > 0 ? 'R$ ' + op.resp.toFixed(2) : '-'}</td>
             <td class="${pnlClass}">R$ ${op.pnl.toFixed(2)}</td>
         `;
         corpo.appendChild(tr);
+
+        // Toggle badge/select ao clicar no badge
+        const cell = tr.querySelector('.estrat-cell');
+        const badge = cell.querySelector('.estrat-badge');
+        const select = cell.querySelector('.estrat-select-inline');
+
+        badge.addEventListener('click', () => {
+            badge.style.display = 'none';
+            select.style.display = 'inline-block';
+            select.focus();
+        });
+
+        select.addEventListener('change', async () => {
+            await salvarEstrategiaOp(chaveOp, select.value);
+            // Atualizar badge sem re-renderizar tudo
+            const novoEstId = select.value === '__auto__' ? detectarEstrategia({ ...op, chave: chaveOp }) : select.value;
+            const novoEst = todasEstrategias().find(e => e.id === novoEstId);
+            const novoLabel = novoEst ? `${novoEst.emoji || ''} ${novoEst.nome}`.trim() : '—';
+            const temOv = select.value !== '__auto__';
+            badge.textContent = novoLabel + (temOv ? ' ✎' : '');
+            badge.className = `estrat-badge ${novoEstId === 'MO' ? 'badge-MO' : novoEstId === 'LG' ? 'badge-LG' : novoEstId === 'UF' ? 'badge-UF' : novoEstId ? 'badge-custom' : 'badge-none'}`;
+            badge.style.display = '';
+            select.style.display = 'none';
+        });
+
+        select.addEventListener('blur', () => {
+            badge.style.display = '';
+            select.style.display = 'none';
+        });
     });
 }
 
@@ -1566,7 +1793,13 @@ const btnRank = document.getElementById('btn-aba-ranking');
 if(btnRank) btnRank.addEventListener('click', () => switchTab('btn-aba-ranking', 'conteudo-ranking'));
 
 const btnOps = document.getElementById('btn-aba-operacoes');
-if(btnOps) btnOps.addEventListener('click', () => switchTab('btn-aba-operacoes', 'conteudo-operacoes'));
+if(btnOps) btnOps.addEventListener('click', () => {
+    switchTab('btn-aba-operacoes', 'conteudo-operacoes');
+    renderizarPillsEstrategias();
+});
+
+const btnAddEstrat = document.getElementById('btn-add-estrategia');
+if(btnAddEstrat) btnAddEstrat.addEventListener('click', adicionarEstrategia);
 
 const btnStake = document.getElementById('btn-aba-stake');
 if(btnStake) btnStake.addEventListener('click', () => {
