@@ -1261,16 +1261,15 @@ function atualizarTabela(lista) {
     // Filtrar pela estratégia selecionada nos pills
     let listaFiltrada = lista;
     if (filtroOpsEstrategia !== 'TODAS') {
-        const est = todasEstrategias().find(e => e.id === filtroOpsEstrategia);
-        if (est) {
-            listaFiltrada = lista.filter(op => {
-                const chavOp = op.mercado + '|' + op.dataLimpa;
-                const override = estrategiasOps[chavOp];
-                if (override) return override === filtroOpsEstrategia;
-                const m = op.mercado.toLowerCase();
-                return est.keywords.some(kw => m.includes(kw));
-            });
-        }
+        listaFiltrada = lista.filter(op => {
+            const chavOp = op.mercado + '|' + op.dataLimpa;
+            // Override manual tem prioridade absoluta
+            const override = estrategiasOps[chavOp];
+            if (override) return override === filtroOpsEstrategia;
+            // Sem override: usar detecção automática — só inclui se a estratégia detectada for exatamente a selecionada
+            const estDetectada = detectarEstrategia(op);
+            return estDetectada === filtroOpsEstrategia;
+        });
     }
 
     listaFiltrada.forEach(op => {
