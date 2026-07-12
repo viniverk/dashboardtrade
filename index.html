@@ -215,11 +215,17 @@
         <div id="conteudo-operacoes" style="display:none; margin-top: 20px;">
             <div class="cards" id="winrate-grid"></div>
             <div class="table-container" style="margin-top: 18px;">
-                <h3>Listagem de Operações Filtradas</h3>
+                <div class="ops-table-header">
+                    <h3>Listagem de Operações Filtradas</h3>
+                    <div class="ops-estrategia-pills" id="ops-estrategia-pills">
+                        <!-- preenchido via JS -->
+                    </div>
+                </div>
                 <table id="tabela-operacoes">
                     <thead>
                         <tr>
                             <th onclick="ordenarTabela('mercado')" title="Clique para ordenar">Mercado ↕</th>
+                            <th>Estratégia</th>
                             <th onclick="ordenarTabela('data')" title="Clique para ordenar">Data/Hora ↕</th>
                             <th onclick="ordenarTabela('odd')" title="Clique para ordenar">ODD ↕</th>
                             <th onclick="ordenarTabela('resp')" title="Clique para ordenar">Responsabilidade ↕</th>
@@ -383,6 +389,43 @@
 
             <div>
                 <button id="btn-salvar-config" class="btn-save">💾 Salvar Configurações</button>
+            </div>
+
+            <!-- Estratégias Personalizadas -->
+            <div class="form-mov-container" style="margin-top: 20px;">
+                <h3>📂 Estratégias</h3>
+                <p class="hint" style="margin-bottom: 14px;">
+                    Defina suas estratégias. As palavras-chave são usadas para identificar as operações pelo nome do mercado (separadas por vírgula).
+                </p>
+                <div class="form-mov-grid">
+                    <div class="filtro-grupo">
+                        <label for="estrat-nome">Nome da Estratégia:</label>
+                        <input type="text" id="estrat-nome" placeholder="Ex: Under à Frente">
+                    </div>
+                    <div class="filtro-grupo filtro-grupo--obs">
+                        <label for="estrat-keywords">Palavras-chave (separadas por vírgula):</label>
+                        <input type="text" id="estrat-keywords" placeholder="Ex: mais/menos, over/under">
+                    </div>
+                    <div class="filtro-grupo">
+                        <label for="estrat-emoji">Emoji (opcional):</label>
+                        <input type="text" id="estrat-emoji" placeholder="Ex: 📉" maxlength="4" style="width:80px;">
+                    </div>
+                </div>
+                <button id="btn-add-estrategia" class="btn-save">➕ Adicionar Estratégia</button>
+
+                <div class="table-container" style="margin-top: 18px; padding: 0; box-shadow: none; border: none; background: transparent;">
+                    <table id="tabela-estrategias">
+                        <thead>
+                            <tr>
+                                <th>Emoji</th>
+                                <th>Nome</th>
+                                <th>Palavras-chave</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpo-estrategias"></tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Metas por mês -->
