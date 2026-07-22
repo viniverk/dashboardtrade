@@ -38,11 +38,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Ignorar URLs que não são http/https (ex: chrome-extension://)
+  if (!event.request.url.startsWith('http')) return;
+
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        // Só cachear respostas válidas de origens http/https
+        if (response && response.status === 200 && event.request.url.startsWith('http')) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
         return response;
       })
       .catch(() => caches.match(event.request))
