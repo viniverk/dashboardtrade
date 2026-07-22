@@ -58,9 +58,11 @@ function tratarValor(valor) {
 }
 
 const monthOrder = {
-    "jan": 0, "feb": 1, "fev": 1, "mar": 2, "apr": 3, "abr": 3, "may": 4, "mai": 4,
-    "jun": 5, "jul": 6, "aug": 7, "ago": 7, "sep": 8, "set": 8, "oct": 9, "out": 9,
-    "nov": 10, "dec": 11, "dez": 11
+    "jan": 0, "jan.": 0, "feb": 1, "fev": 1, "fev.": 1, "mar": 2, "mar.": 2,
+    "apr": 3, "abr": 3, "abr.": 3, "may": 4, "mai": 4, "mai.": 4,
+    "jun": 5, "jun.": 5, "jul": 6, "jul.": 6, "aug": 7, "ago": 7, "ago.": 7,
+    "sep": 8, "set": 8, "set.": 8, "oct": 9, "out": 9, "out.": 9,
+    "nov": 10, "nov.": 10, "dec": 11, "dez": 11, "dez.": 11
 };
 
 // Aplica classe de cor positiva/negativa em um elemento de valor monetário
@@ -568,6 +570,7 @@ function atualizarResumoMensal(operacoesFiltradas) {
         const partes = op.dataLimpa.split('-');
         if (partes.length < 3) return;
         const mes = monthOrder[partes[1].toLowerCase()];
+        if (mes === undefined || mes === null) return; // ignorar meses não reconhecidos (ex: jul.)
         const ano = parseInt('20' + partes[2]);
         const chave = `${ano}-${String(mes).padStart(2,'0')}`;
         if (!porMes[chave]) porMes[chave] = { ano, mes, lucro: 0, total: 0, greens: 0, reds: 0 };
@@ -633,8 +636,9 @@ function atualizarResumoMensal(operacoesFiltradas) {
     if (!canvasMensal) return;
     if (chartMensal) chartMensal.destroy();
 
-    const labelsGrafico = dados.map(d => `${MESES_PT[d.mes].slice(0,3)} ${d.ano}`).reverse();
-    const valoresGrafico = dados.map(d => d.lucro).reverse();
+    const dadosValidos = dados.filter(d => d.mes !== undefined && d.mes !== null && MESES_PT[d.mes]);
+    const labelsGrafico = dadosValidos.map(d => `${MESES_PT[d.mes].slice(0,3)} ${d.ano}`).reverse();
+    const valoresGrafico = dadosValidos.map(d => d.lucro).reverse();
 
     chartMensal = new Chart(canvasMensal.getContext('2d'), {
         type: 'bar',
@@ -1426,6 +1430,10 @@ function switchTab(activeBtnId, activeContentId) {
 let operacoesPendentes = [];   // operações novas detectadas aguardando confirmação
 let nomeArquivoPendente = '';
 
+function normalizarDataBetfair(dataStr) {
+    return dataStr.replace(/-(\w+)\.-/g, '-$1-');
+}
+
 function parsearCSVBetfair(texto) {
     const linhas = texto.split('\n');
     const cabecalhos = linhas[0].toLowerCase().replace(/\r/g, '').split(',');
@@ -1447,7 +1455,8 @@ function parsearCSVBetfair(texto) {
         if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
 
         const mercado = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim() : 'Desconhecido';
-        const dataHora = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : '';
+        const dataHoraRaw = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : '';
+        const dataHora = normalizarDataBetfair(dataHoraRaw);
         const lucro    = tratarValor(colunas[idxLucro]);
         const resp     = tratarValor(colunas[idxResp]);
         const odd      = tratarValor(colunas[idxOdd]);
@@ -1474,49 +1483,39 @@ async function deduplicarOperacoes() {
     try {
         const refOps = collection(db, "operacoes_historico", usuarioAtual.uid, "operacoes");
         const snap = await getDocs(refOps);
-
-        const vistos = new Map(); // chave → docId do primeiro encontrado
-        const paraExcluir = []; // docIds duplicados
+        const vistos = new Map();
+        const paraExcluir = [];
 
         snap.docs.forEach(d => {
             const op = d.data();
-            // Chave: betId se disponível, senão mercado|dataHora
             const chave = op.chave || `${op.mercado}|${op.dataHora}`;
             if (!chave) return;
-
-            if (vistos.has(chave)) {
-                paraExcluir.push(d.id);
-            } else {
-                vistos.set(chave, d.id);
-            }
+            if (vistos.has(chave)) paraExcluir.push(d.id);
+            else vistos.set(chave, d.id);
         });
 
         if (paraExcluir.length === 0) {
-            alert('✅ Nenhuma duplicata encontrada! Os dados já estão limpos.');
+            alert('✅ Nenhuma duplicata encontrada!');
             if (btn) { btn.disabled = false; btn.innerText = '🧹 Deduplicar Dados'; }
             return;
         }
 
-        // Excluir duplicatas em lotes
         const LOTE = 400;
         for (let i = 0; i < paraExcluir.length; i += LOTE) {
             const batch = writeBatch(db);
-            paraExcluir.slice(i, i + LOTE).forEach(id => {
-                batch.delete(doc(refOps, id));
-            });
+            paraExcluir.slice(i, i + LOTE).forEach(id => batch.delete(doc(refOps, id)));
             await batch.commit();
         }
 
         const totalRestante = snap.size - paraExcluir.length;
         alert(`✅ Deduplicação concluída!\n\n🗑️ ${paraExcluir.length} duplicatas removidas\n📊 ${totalRestante} operações únicas mantidas`);
-
         await carregarOperacoesDoFirestore();
         await carregarHistoricoImportacoes();
-
     } catch (e) {
         console.error("Erro ao deduplicar:", e);
         alert("Falha ao deduplicar. Tente novamente.");
     } finally {
+        const btn = document.getElementById('btn-deduplicar');
         if (btn) { btn.disabled = false; btn.innerText = '🧹 Deduplicar Dados'; }
     }
 }
@@ -1878,9 +1877,6 @@ if(btnConfig) btnConfig.addEventListener('click', () => {
 
 const btnLimparHistorico = document.getElementById('btn-limpar-historico');
 if(btnLimparHistorico) btnLimparHistorico.addEventListener('click', limparHistoricoImportacoes);
-
-const btnDeduplicar = document.getElementById('btn-deduplicar');
-if(btnDeduplicar) btnDeduplicar.addEventListener('click', deduplicarOperacoes);
 
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
     const el = document.getElementById(id);
