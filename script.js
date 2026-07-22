@@ -1438,116 +1438,137 @@ function normalizarDataBetfair(dataStr) {
 function parsearCSVBetfair(texto) {
     const linhas = texto.split('\n');
     const cabecalhos = linhas[0].replace(/^\uFEFF/, '').toLowerCase().replace(/\r/g, '').split(',');
-
-    const isBetHistory = cabecalhos.some(c => c.includes('id da aposta') || c === 'id aposta');
+    const isBetHistory = cabecalhos.some(col => col.trim() === 'id da aposta');
 
     let idxMercado, idxId, idxData, idxOdd, idxResp, idxLucro, idxStake;
-
     if (isBetHistory) {
         idxMercado = 0; idxId = 3; idxData = 4;
         idxOdd = 10; idxResp = 9; idxStake = 8; idxLucro = 11;
     } else {
-        idxId      = -1;
-        idxData    = cabecalhos.findIndex(c => c.includes('resolvida'));
-        idxMercado = cabecalhos.findIndex(c => c.includes('descri'));
-        idxOdd     = cabecalhos.findIndex(c => c.includes('cota'));
-        idxResp    = cabecalhos.findIndex(c => c.includes('risco'));
-        idxLucro   = cabecalhos.findIndex(c => c.includes('lucro'));
-        idxStake   = cabecalhos.findIndex(c => c.includes('valor apostado') || c.includes('stake'));
+        idxId = -1;
+        idxData    = cabecalhos.findIndex(col => col.includes('resolvida'));
+        idxMercado = cabecalhos.findIndex(col => col.includes('descri'));
+        idxOdd     = cabecalhos.findIndex(col => col.includes('cota'));
+        idxResp    = cabecalhos.findIndex(col => col.includes('risco'));
+        idxLucro   = cabecalhos.findIndex(col => col.includes('lucro'));
+        idxStake   = cabecalhos.findIndex(col => col.includes('valor apostado') || col.includes('stake'));
     }
 
     const operacoes = [];
-
     for (let i = 1; i < linhas.length; i++) {
         const lineClean = linhas[i].trim().replace(/\r/g, '');
         if (!lineClean) continue;
-
-        const colunas = lineClean.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-        if (colunas.length < 4) continue;
+        const cols = lineClean.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        if (cols.length < 4) continue;
 
         let mercado, dataHora, lucro, resp, odd, stake, betId;
 
         if (isBetHistory) {
-            const partesMerc = (colunas[idxMercado] || '').replace(/^"|"$/g, '').split('/');
+            const partesMerc = cols[idxMercado].replace(/^"|"$/g, '').split('/');
             const jogo = partesMerc.length >= 2 ? partesMerc[1].trim() : '';
             const tipo = partesMerc.length >= 3 ? partesMerc.slice(2).join('/').trim() : '';
             mercado  = (jogo + (tipo ? ' ' + tipo : '')).trim();
-            betId    = (colunas[idxId] || '').trim();
-            dataHora = normalizarDataBetfair((colunas[idxData] || '').trim());
-            odd      = parseFloat(colunas[idxOdd]) || 0;
-            resp     = parseFloat(colunas[idxResp]) || 0;
-            stake    = parseFloat(colunas[idxStake]) || 0;
-            const ls = (colunas[idxLucro] || '').trim();
+            betId    = (cols[idxId] || '').trim();
+            dataHora = normalizarDataBetfair((cols[idxData] || '').trim());
+            odd      = parseFloat(cols[idxOdd]) || 0;
+            resp     = parseFloat(cols[idxResp]) || 0;
+            stake    = parseFloat(cols[idxStake]) || 0;
+            const ls = (cols[idxLucro] || '').trim();
             lucro    = ls.startsWith('(') && ls.endsWith(')') ? -(parseFloat(ls.slice(1,-1)) || 0) : (parseFloat(ls) || 0);
         } else {
-            const desc = (colunas[idxMercado] || '').replace(/["']/g, '').trim();
+            const desc = (cols[idxMercado] || '').replace(/["']/g, '').trim();
             mercado  = desc.split('|')[0].trim() || 'Desconhecido';
             const mId = desc.match(/ID Aposta Betfair\s+([\d:]+)/i);
             betId    = mId ? mId[1] : null;
-            dataHora = normalizarDataBetfair((colunas[idxData] || '').replace(/["']/g, '').trim());
-            lucro    = tratarValor(colunas[idxLucro]);
-            resp     = tratarValor(colunas[idxResp]);
-            odd      = tratarValor(colunas[idxOdd]);
-            stake    = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
+            dataHora = normalizarDataBetfair((cols[idxData] || '').replace(/["']/g, '').trim());
+            lucro    = tratarValor(cols[idxLucro]);
+            resp     = tratarValor(cols[idxResp]);
+            odd      = tratarValor(cols[idxOdd]);
+            stake    = idxStake !== -1 ? tratarValor(cols[idxStake]) : 0;
         }
 
         if (!dataHora || !mercado) continue;
-
         const chave = betId ? ('betId:' + betId) : (mercado + '|' + dataHora);
         operacoes.push({ mercado, dataHora, lucro, resp, odd, stake, chave });
     }
-
     return operacoes;
 }
 
 
 
+async function apagarTodosOsDados() {
+    if (!usuarioAtual) return;
+    if (!confirm('⚠️ ATENÇÃO\n\nIsso vai apagar TODAS as operações importadas do Firestore.\n\nEsta ação não pode ser desfeita.\n\nDeseja continuar?')) return;
+    if (!confirm('Tem certeza? Todos os dados serão perdidos.')) return;
+
+    const btn = document.getElementById('btn-apagar-tudo');
+    if (btn) { btn.disabled = true; btn.innerText = '⏳ Apagando...'; }
+
+    try {
+        const refOps = collection(db, "operacoes_historico", usuarioAtual.uid, "operacoes");
+        const snap = await getDocs(refOps);
+        const total = snap.size;
+        const LOTE = 400;
+        for (let i = 0; i < snap.docs.length; i += LOTE) {
+            const batch = writeBatch(db);
+            snap.docs.slice(i, i + LOTE).forEach(d => batch.delete(d.ref));
+            await batch.commit();
+        }
+        // Limpar histórico de importações também
+        const refImport = collection(db, "operacoes_historico", usuarioAtual.uid, "importacoes");
+        const snapImp = await getDocs(refImport);
+        for (let i = 0; i < snapImp.docs.length; i += LOTE) {
+            const batch = writeBatch(db);
+            snapImp.docs.slice(i, i + LOTE).forEach(d => batch.delete(d.ref));
+            await batch.commit();
+        }
+        todasOperacoes = [];
+        aplicarFiltros();
+        await carregarHistoricoImportacoes();
+        alert('✅ ' + total + ' operações apagadas. Pode importar o CSV limpo agora.');
+    } catch(e) {
+        console.error("Erro ao apagar:", e);
+        alert("Falha ao apagar dados.");
+    } finally {
+        const b = document.getElementById('btn-apagar-tudo');
+        if (b) { b.disabled = false; b.innerText = '🗑️ Apagar Tudo'; }
+    }
+}
+
 async function deduplicarOperacoes() {
     if (!usuarioAtual) return;
-    if (!confirm('Deduplicar dados?\nRemove duplicatas entre diferentes formatos de CSV.\nDados unicos serao preservados.')) return;
+    if (!confirm('Deduplicar dados?\nRemove duplicatas por conteúdo (mercado+dia+valor).')) return;
     const btn = document.getElementById('btn-deduplicar');
     if (btn) { btn.disabled = true; btn.innerText = 'Deduplicando...'; }
     try {
         const refOps = collection(db, "operacoes_historico", usuarioAtual.uid, "operacoes");
         const snap = await getDocs(refOps);
-        const vistos = new Map();
-        const paraExcluir = [];
+        const vistos = new Map(); const paraExcluir = [];
         snap.docs.forEach(d => {
             const op = d.data();
-            const dl = op.dataHora ? normalizarDataBetfair(op.dataHora).split(' ')[0] : (op.dataLimpa || '');
-            const mn = (op.mercado || '').toLowerCase().trim();
-            const li = Math.round((op.lucro || 0) * 100);
-            const cc = mn + '|' + dl + '|' + li;
+            const dl = op.dataHora ? normalizarDataBetfair(op.dataHora).split(' ')[0] : (op.dataLimpa||'');
+            const cc = (op.mercado||'').toLowerCase().trim()+'|'+dl+'|'+Math.round((op.lucro||0)*100);
             const ci = op.chave && op.chave.startsWith('betId:') ? op.chave : null;
             if (ci) {
-                if (vistos.has(ci) || vistos.has(cc)) { paraExcluir.push(d.id); }
-                else { vistos.set(ci, d.id); vistos.set(cc, d.id); }
+                if (vistos.has(ci)||vistos.has(cc)) paraExcluir.push(d.id);
+                else { vistos.set(ci,d.id); vistos.set(cc,d.id); }
             } else {
-                if (vistos.has(cc)) { paraExcluir.push(d.id); }
-                else { vistos.set(cc, d.id); }
+                if (vistos.has(cc)) paraExcluir.push(d.id);
+                else vistos.set(cc, d.id);
             }
         });
-        if (paraExcluir.length === 0) {
-            alert('Nenhuma duplicata encontrada!');
-            if (btn) { btn.disabled = false; btn.innerText = 'Deduplicar Dados'; }
-            return;
-        }
+        if (paraExcluir.length === 0) { alert('Nenhuma duplicata!'); return; }
         const LOTE = 400;
         for (let i = 0; i < paraExcluir.length; i += LOTE) {
             const batch = writeBatch(db);
-            paraExcluir.slice(i, i + LOTE).forEach(id => batch.delete(doc(refOps, id)));
+            paraExcluir.slice(i,i+LOTE).forEach(id => batch.delete(doc(refOps,id)));
             await batch.commit();
         }
-        alert('Concluido! ' + paraExcluir.length + ' removidas, ' + (snap.size - paraExcluir.length) + ' unicas.');
+        alert(paraExcluir.length + ' duplicatas removidas, ' + (snap.size-paraExcluir.length) + ' únicas mantidas.');
         await carregarOperacoesDoFirestore();
         await carregarHistoricoImportacoes();
-    } catch(e) {
-        console.error("Erro ao deduplicar:", e);
-        alert("Falha ao deduplicar.");
-    } finally {
-        const b = document.getElementById('btn-deduplicar');
-        if (b) { b.disabled = false; b.innerText = 'Deduplicar Dados'; }
-    }
+    } catch(e) { console.error(e); alert("Falha ao deduplicar."); }
+    finally { const b=document.getElementById('btn-deduplicar'); if(b){b.disabled=false;b.innerText='Deduplicar Dados';} }
 }
 
 async function carregarHistoricoImportacoes() {
