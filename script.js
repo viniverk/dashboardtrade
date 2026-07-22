@@ -58,11 +58,9 @@ function tratarValor(valor) {
 }
 
 const monthOrder = {
-    "jan": 0, "jan.": 0, "feb": 1, "fev": 1, "fev.": 1, "mar": 2, "mar.": 2,
-    "apr": 3, "abr": 3, "abr.": 3, "may": 4, "mai": 4, "mai.": 4,
-    "jun": 5, "jun.": 5, "jul": 6, "jul.": 6, "aug": 7, "ago": 7, "ago.": 7,
-    "sep": 8, "set": 8, "set.": 8, "oct": 9, "out": 9, "out.": 9,
-    "nov": 10, "nov.": 10, "dec": 11, "dez": 11, "dez.": 11
+    "jan": 0, "feb": 1, "fev": 1, "mar": 2, "apr": 3, "abr": 3, "may": 4, "mai": 4,
+    "jun": 5, "jul": 6, "aug": 7, "ago": 7, "sep": 8, "set": 8, "oct": 9, "out": 9,
+    "nov": 10, "dec": 11, "dez": 11
 };
 
 // Aplica classe de cor positiva/negativa em um elemento de valor monetário
@@ -1428,17 +1426,9 @@ function switchTab(activeBtnId, activeContentId) {
 let operacoesPendentes = [];   // operações novas detectadas aguardando confirmação
 let nomeArquivoPendente = '';
 
-function normalizarDataBetfair(dataStr) {
-    // Normaliza datas no formato "22-jul.-26 09:27:05" → "22-jul-26 09:27:05"
-    // Remove o ponto após abreviação do mês para compatibilidade com monthOrder
-    return dataStr.replace(/-(\w+)\.-/g, '-$1-');
-}
-
 function parsearCSVBetfair(texto) {
     const linhas = texto.split('\n');
-    // Remove BOM se existir
-    const primeiraLinha = linhas[0].replace(/^\uFEFF/, '').toLowerCase().replace(/\r/g, '');
-    const cabecalhos = primeiraLinha.split(',');
+    const cabecalhos = linhas[0].toLowerCase().replace(/\r/g, '').split(',');
 
     const idxData  = cabecalhos.findIndex(c => c.includes('resolvida'));
     const idxDesc  = cabecalhos.findIndex(c => c.includes('descri'));
@@ -1456,30 +1446,79 @@ function parsearCSVBetfair(texto) {
         const colunas = lineClean.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
         if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
 
-        const descricaoCompleta = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').trim() : '';
-        const mercado = descricaoCompleta.split('|')[0].trim() || 'Desconhecido';
-
-        // Extrair ID único da aposta da descrição — é a chave mais precisa para dedup
-        const matchId = descricaoCompleta.match(/ID Aposta Betfair\s+([\d:]+)/i);
-        const betId = matchId ? matchId[1] : null;
-
-        const dataHoraRaw = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : '';
-        const dataHora    = normalizarDataBetfair(dataHoraRaw); // remove ponto do mês: jul. → jul
-
-        const lucro = tratarValor(colunas[idxLucro]);
-        const resp  = tratarValor(colunas[idxResp]);
-        const odd   = tratarValor(colunas[idxOdd]);
-        const stake = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
+        const mercado = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim() : 'Desconhecido';
+        const dataHora = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : '';
+        const lucro    = tratarValor(colunas[idxLucro]);
+        const resp     = tratarValor(colunas[idxResp]);
+        const odd      = tratarValor(colunas[idxOdd]);
+        const stake    = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
 
         if (!dataHora) continue;
 
-        // Chave: ID da aposta se disponível (mais preciso), senão mercado+dataHora
-        const chave = betId ? `betId:${betId}` : `${mercado}|${dataHora}`;
-
+        // Chave única: mercado + data/hora completa
+        const chave = `${mercado}|${dataHora}`;
         operacoes.push({ mercado, dataHora, lucro, resp, odd, stake, chave });
     }
 
     return operacoes;
+}
+
+
+async function deduplicarOperacoes() {
+    if (!usuarioAtual) return;
+    if (!confirm('🧹 Deduplicar dados do Firestore?\n\nO sistema vai ler todas as operações, manter apenas uma cópia de cada uma e apagar as duplicatas.\n\nSeus dados históricos serão preservados.')) return;
+
+    const btn = document.getElementById('btn-deduplicar');
+    if (btn) { btn.disabled = true; btn.innerText = '⏳ Deduplicando...'; }
+
+    try {
+        const refOps = collection(db, "operacoes_historico", usuarioAtual.uid, "operacoes");
+        const snap = await getDocs(refOps);
+
+        const vistos = new Map(); // chave → docId do primeiro encontrado
+        const paraExcluir = []; // docIds duplicados
+
+        snap.docs.forEach(d => {
+            const op = d.data();
+            // Chave: betId se disponível, senão mercado|dataHora
+            const chave = op.chave || `${op.mercado}|${op.dataHora}`;
+            if (!chave) return;
+
+            if (vistos.has(chave)) {
+                paraExcluir.push(d.id);
+            } else {
+                vistos.set(chave, d.id);
+            }
+        });
+
+        if (paraExcluir.length === 0) {
+            alert('✅ Nenhuma duplicata encontrada! Os dados já estão limpos.');
+            if (btn) { btn.disabled = false; btn.innerText = '🧹 Deduplicar Dados'; }
+            return;
+        }
+
+        // Excluir duplicatas em lotes
+        const LOTE = 400;
+        for (let i = 0; i < paraExcluir.length; i += LOTE) {
+            const batch = writeBatch(db);
+            paraExcluir.slice(i, i + LOTE).forEach(id => {
+                batch.delete(doc(refOps, id));
+            });
+            await batch.commit();
+        }
+
+        const totalRestante = snap.size - paraExcluir.length;
+        alert(`✅ Deduplicação concluída!\n\n🗑️ ${paraExcluir.length} duplicatas removidas\n📊 ${totalRestante} operações únicas mantidas`);
+
+        await carregarOperacoesDoFirestore();
+        await carregarHistoricoImportacoes();
+
+    } catch (e) {
+        console.error("Erro ao deduplicar:", e);
+        alert("Falha ao deduplicar. Tente novamente.");
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = '🧹 Deduplicar Dados'; }
+    }
 }
 
 async function carregarHistoricoImportacoes() {
@@ -1839,6 +1878,9 @@ if(btnConfig) btnConfig.addEventListener('click', () => {
 
 const btnLimparHistorico = document.getElementById('btn-limpar-historico');
 if(btnLimparHistorico) btnLimparHistorico.addEventListener('click', limparHistoricoImportacoes);
+
+const btnDeduplicar = document.getElementById('btn-deduplicar');
+if(btnDeduplicar) btnDeduplicar.addEventListener('click', deduplicarOperacoes);
 
 ['filtro-estrategia', 'filtro-ano', 'filtro-mes', 'filtro-data', 'tipo-grafico'].forEach(id => {
     const el = document.getElementById(id);
