@@ -1435,36 +1435,79 @@ function parsearCSVBetfair(texto) {
     const linhas = texto.split('\n');
     const cabecalhos = linhas[0].replace(/^\uFEFF/, '').toLowerCase().replace(/\r/g, '').split(',');
 
-    const idxData  = cabecalhos.findIndex(c => c.includes('resolvida'));
-    const idxDesc  = cabecalhos.findIndex(c => c.includes('descri'));
-    const idxOdd   = cabecalhos.findIndex(c => c.includes('cota'));
-    const idxResp  = cabecalhos.findIndex(c => c.includes('risco'));
-    const idxLucro = cabecalhos.findIndex(c => c.includes('lucro'));
-    const idxStake = cabecalhos.findIndex(c => c.includes('valor apostado') || c.includes('stake'));
+    // Detectar formato: BetHistory (ID da Aposta na col 3) vs ExchangeBets (resolvida)
+    const isBetHistory = cabecalhos.findIndex(c => c.includes('id da aposta') || c.includes('id aposta')) >= 0;
+
+    let idxMercado, idxId, idxData, idxOdd, idxResp, idxLucro, idxStake;
+
+    if (isBetHistory) {
+        // Formato: Mercado,Seleção,Tipo de lance,ID da Aposta,Aposta realizada,,Persistência,Prob.req.,Aposta(R$),Responsabilidade(R$),Média odds,Lucro/Prejuízo
+        idxMercado = 0;
+        idxId      = cabecalhos.findIndex(c => c.includes('id') && c.includes('aposta'));
+        idxData    = 4;
+        idxOdd     = 10; // Média de probabilidades correspondidas
+        idxResp    = 9;  // Responsabilidade
+        idxStake   = 8;  // Aposta (R$)
+        idxLucro   = 11; // Lucro/Prejuízo
+    } else {
+        // Formato ExchangeBets: busca por colunas com includes
+        idxId      = -1;
+        idxData    = cabecalhos.findIndex(c => c.includes('resolvida'));
+        idxMercado = cabecalhos.findIndex(c => c.includes('descri'));
+        idxOdd     = cabecalhos.findIndex(c => c.includes('cota'));
+        idxResp    = cabecalhos.findIndex(c => c.includes('risco'));
+        idxLucro   = cabecalhos.findIndex(c => c.includes('lucro'));
+        idxStake   = cabecalhos.findIndex(c => c.includes('valor apostado') || c.includes('stake'));
+    }
 
     const operacoes = [];
 
     for (let i = 1; i < linhas.length; i++) {
         const lineClean = linhas[i].trim().replace(/\r/g, '');
-        if (!lineClean || lineClean.toLowerCase().includes('status')) continue;
+        if (!lineClean) continue;
 
         const colunas = lineClean.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-        if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
+        if (colunas.length < 4) continue;
 
-        const descricaoCompleta = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').trim() : '';
-        const mercado = descricaoCompleta.split('|')[0].trim() || 'Desconhecido';
+        let mercado, dataHora, lucro, resp, odd, stake, betId;
 
-        const matchId = descricaoCompleta.match(/ID Aposta Betfair\s+([\d:]+)/i);
-        const betId = matchId ? matchId[1] : null;
+        if (isBetHistory) {
+            // Mercado: "Futebol / Omonia x Kairat Almaty / Placar correto"
+            // Extrair jogo + tipo de mercado
+            const partesMercado = (colunas[idxMercado] || '').split('/');
+            const jogo = partesMercado.length >= 2 ? partesMercado[1].trim() : '';
+            const tipoMercado = partesMercado.length >= 3 ? partesMercado.slice(2).join('/').trim() : '';
+            mercado = jogo + (tipoMercado ? ' ' + tipoMercado : '');
 
-        const dataHoraRaw = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : '';
-        const dataHora = normalizarDataBetfair(dataHoraRaw);
-        const lucro    = tratarValor(colunas[idxLucro]);
-        const resp     = tratarValor(colunas[idxResp]);
-        const odd      = tratarValor(colunas[idxOdd]);
-        const stake    = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
+            betId   = colunas[idxId] ? colunas[idxId].trim() : null;
+            dataHora = normalizarDataBetfair((colunas[idxData] || '').trim());
+            odd      = parseFloat(colunas[idxOdd]) || 0;
+            resp     = parseFloat(colunas[idxResp]) || 0;
+            stake    = parseFloat(colunas[idxStake]) || 0;
 
-        if (!dataHora) continue;
+            // Lucro: pode ser "(36.13)" para negativo ou "38.46" para positivo
+            const lucroStr = (colunas[idxLucro] || '').trim();
+            if (lucroStr.startsWith('(') && lucroStr.endsWith(')')) {
+                lucro = -parseFloat(lucroStr.slice(1, -1)) || 0;
+            } else {
+                lucro = parseFloat(lucroStr) || 0;
+            }
+        } else {
+            const descricaoCompleta = colunas[idxMercado] ? colunas[idxMercado].replace(/["']/g, '').trim() : '';
+            mercado = descricaoCompleta.split('|')[0].trim() || 'Desconhecido';
+
+            const matchId = descricaoCompleta.match(/ID Aposta Betfair\s+([\d:]+)/i);
+            betId   = matchId ? matchId[1] : null;
+
+            const dataHoraRaw = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : '';
+            dataHora = normalizarDataBetfair(dataHoraRaw);
+            lucro    = tratarValor(colunas[idxLucro]);
+            resp     = tratarValor(colunas[idxResp]);
+            odd      = tratarValor(colunas[idxOdd]);
+            stake    = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
+        }
+
+        if (!dataHora || !mercado) continue;
 
         const chave = betId ? ('betId:' + betId) : (mercado + '|' + dataHora);
         operacoes.push({ mercado, dataHora, lucro, resp, odd, stake, chave });
@@ -1474,19 +1517,17 @@ function parsearCSVBetfair(texto) {
 }
 
 
+
 async function deduplicarOperacoes() {
     if (!usuarioAtual) return;
-    if (!confirm('Deduplicar dados?\n\nRemove duplicatas entre diferentes formatos de CSV.\nDados unicos serao preservados.')) return;
-
+    if (!confirm('Deduplicar dados?\nRemove duplicatas entre diferentes formatos de CSV.')) return;
     const btn = document.getElementById('btn-deduplicar');
     if (btn) { btn.disabled = true; btn.innerText = 'Deduplicando...'; }
-
     try {
         const refOps = collection(db, "operacoes_historico", usuarioAtual.uid, "operacoes");
         const snap = await getDocs(refOps);
         const vistos = new Map();
         const paraExcluir = [];
-
         snap.docs.forEach(d => {
             const op = d.data();
             const dl = op.dataHora ? normalizarDataBetfair(op.dataHora).split(' ')[0] : (op.dataLimpa || '');
@@ -1494,7 +1535,6 @@ async function deduplicarOperacoes() {
             const li = Math.round((op.lucro || 0) * 100);
             const cc = mn + '|' + dl + '|' + li;
             const ci = op.chave && op.chave.startsWith('betId:') ? op.chave : null;
-
             if (ci) {
                 if (vistos.has(ci) || vistos.has(cc)) { paraExcluir.push(d.id); }
                 else { vistos.set(ci, d.id); vistos.set(cc, d.id); }
@@ -1503,21 +1543,18 @@ async function deduplicarOperacoes() {
                 else { vistos.set(cc, d.id); }
             }
         });
-
         if (paraExcluir.length === 0) {
             alert('Nenhuma duplicata encontrada!');
             if (btn) { btn.disabled = false; btn.innerText = 'Deduplicar Dados'; }
             return;
         }
-
         const LOTE = 400;
         for (let i = 0; i < paraExcluir.length; i += LOTE) {
             const batch = writeBatch(db);
             paraExcluir.slice(i, i + LOTE).forEach(id => batch.delete(doc(refOps, id)));
             await batch.commit();
         }
-
-        alert('Deduplicacao concluida!\n' + paraExcluir.length + ' duplicatas removidas\n' + (snap.size - paraExcluir.length) + ' unicas mantidas');
+        alert('Concluido! ' + paraExcluir.length + ' duplicatas removidas, ' + (snap.size - paraExcluir.length) + ' unicas mantidas.');
         await carregarOperacoesDoFirestore();
         await carregarHistoricoImportacoes();
     } catch (e) {
@@ -1528,7 +1565,6 @@ async function deduplicarOperacoes() {
         if (btn2) { btn2.disabled = false; btn2.innerText = 'Deduplicar Dados'; }
     }
 }
-
 
 async function carregarHistoricoImportacoes() {
     if (!usuarioAtual) return;
@@ -1609,16 +1645,7 @@ async function processarArquivoCSV(arquivo) {
     const snapExistentes = await getDocs(refOps);
     const chavesExistentes = new Set(snapExistentes.docs.map(d => d.data().chave));
 
-    const cceExist = new Set(snapExistentes.docs.map(d => {
-        const o = d.data();
-        const dl = o.dataHora ? normalizarDataBetfair(o.dataHora).split(' ')[0] : '';
-        return (o.mercado||'').toLowerCase().trim()+'|'+dl+'|'+Math.round((o.lucro||0)*100);
-    }));
-    const novas = operacoesArquivo.filter(op => {
-        if (chavesExistentes.has(op.chave)) return false;
-        const dl2 = op.dataHora ? op.dataHora.split(' ')[0] : '';
-        return !cceExist.has(op.mercado.toLowerCase().trim()+'|'+dl2+'|'+Math.round((op.lucro||0)*100));
-    });
+    const novas      = operacoesArquivo.filter(op => !chavesExistentes.has(op.chave));
     const duplicadas = operacoesArquivo.length - novas.length;
 
     operacoesPendentes = novas;
