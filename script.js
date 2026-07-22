@@ -58,9 +58,11 @@ function tratarValor(valor) {
 }
 
 const monthOrder = {
-    "jan": 0, "feb": 1, "fev": 1, "mar": 2, "apr": 3, "abr": 3, "may": 4, "mai": 4,
-    "jun": 5, "jul": 6, "aug": 7, "ago": 7, "sep": 8, "set": 8, "oct": 9, "out": 9,
-    "nov": 10, "dec": 11, "dez": 11
+    "jan": 0, "jan.": 0, "feb": 1, "fev": 1, "fev.": 1, "mar": 2, "mar.": 2,
+    "apr": 3, "abr": 3, "abr.": 3, "may": 4, "mai": 4, "mai.": 4,
+    "jun": 5, "jun.": 5, "jul": 6, "jul.": 6, "aug": 7, "ago": 7, "ago.": 7,
+    "sep": 8, "set": 8, "set.": 8, "oct": 9, "out": 9, "out.": 9,
+    "nov": 10, "nov.": 10, "dec": 11, "dez": 11, "dez.": 11
 };
 
 // Aplica classe de cor positiva/negativa em um elemento de valor monetário
@@ -568,7 +570,6 @@ function atualizarResumoMensal(operacoesFiltradas) {
         const partes = op.dataLimpa.split('-');
         if (partes.length < 3) return;
         const mes = monthOrder[partes[1].toLowerCase()];
-        if (mes === undefined) return; // ignorar datas com mês não reconhecido
         const ano = parseInt('20' + partes[2]);
         const chave = `${ano}-${String(mes).padStart(2,'0')}`;
         if (!porMes[chave]) porMes[chave] = { ano, mes, lucro: 0, total: 0, greens: 0, reds: 0 };
@@ -634,9 +635,8 @@ function atualizarResumoMensal(operacoesFiltradas) {
     if (!canvasMensal) return;
     if (chartMensal) chartMensal.destroy();
 
-    const dadosValidos = dados.filter(d => d.mes !== undefined && MESES_PT[d.mes]);
-    const labelsGrafico = dadosValidos.map(d => `${MESES_PT[d.mes].slice(0,3)} ${d.ano}`).reverse();
-    const valoresGrafico = dadosValidos.map(d => d.lucro).reverse();
+    const labelsGrafico = dados.map(d => `${MESES_PT[d.mes].slice(0,3)} ${d.ano}`).reverse();
+    const valoresGrafico = dados.map(d => d.lucro).reverse();
 
     chartMensal = new Chart(canvasMensal.getContext('2d'), {
         type: 'bar',
@@ -1428,9 +1428,17 @@ function switchTab(activeBtnId, activeContentId) {
 let operacoesPendentes = [];   // operações novas detectadas aguardando confirmação
 let nomeArquivoPendente = '';
 
+function normalizarDataBetfair(dataStr) {
+    // Normaliza datas no formato "22-jul.-26 09:27:05" → "22-jul-26 09:27:05"
+    // Remove o ponto após abreviação do mês para compatibilidade com monthOrder
+    return dataStr.replace(/-(\w+)\.-/g, '-$1-');
+}
+
 function parsearCSVBetfair(texto) {
     const linhas = texto.split('\n');
-    const cabecalhos = linhas[0].toLowerCase().replace(/\r/g, '').split(',');
+    // Remove BOM se existir
+    const primeiraLinha = linhas[0].replace(/^\uFEFF/, '').toLowerCase().replace(/\r/g, '');
+    const cabecalhos = primeiraLinha.split(',');
 
     const idxData  = cabecalhos.findIndex(c => c.includes('resolvida'));
     const idxDesc  = cabecalhos.findIndex(c => c.includes('descri'));
@@ -1448,17 +1456,26 @@ function parsearCSVBetfair(texto) {
         const colunas = lineClean.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
         if (colunas.length <= Math.max(idxDesc, idxLucro)) continue;
 
-        const mercado = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').split('|')[0].trim() : 'Desconhecido';
-        const dataHora = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : '';
-        const lucro    = tratarValor(colunas[idxLucro]);
-        const resp     = tratarValor(colunas[idxResp]);
-        const odd      = tratarValor(colunas[idxOdd]);
-        const stake    = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
+        const descricaoCompleta = colunas[idxDesc] ? colunas[idxDesc].replace(/["']/g, '').trim() : '';
+        const mercado = descricaoCompleta.split('|')[0].trim() || 'Desconhecido';
+
+        // Extrair ID único da aposta da descrição — é a chave mais precisa para dedup
+        const matchId = descricaoCompleta.match(/ID Aposta Betfair\s+([\d:]+)/i);
+        const betId = matchId ? matchId[1] : null;
+
+        const dataHoraRaw = colunas[idxData] ? colunas[idxData].replace(/["']/g, '').trim() : '';
+        const dataHora    = normalizarDataBetfair(dataHoraRaw); // remove ponto do mês: jul. → jul
+
+        const lucro = tratarValor(colunas[idxLucro]);
+        const resp  = tratarValor(colunas[idxResp]);
+        const odd   = tratarValor(colunas[idxOdd]);
+        const stake = idxStake !== -1 ? tratarValor(colunas[idxStake]) : 0;
 
         if (!dataHora) continue;
 
-        // Chave única: mercado + data/hora completa
-        const chave = `${mercado}|${dataHora}`;
+        // Chave: ID da aposta se disponível (mais preciso), senão mercado+dataHora
+        const chave = betId ? `betId:${betId}` : `${mercado}|${dataHora}`;
+
         operacoes.push({ mercado, dataHora, lucro, resp, odd, stake, chave });
     }
 
