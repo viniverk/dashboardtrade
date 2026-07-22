@@ -568,6 +568,7 @@ function atualizarResumoMensal(operacoesFiltradas) {
         const partes = op.dataLimpa.split('-');
         if (partes.length < 3) return;
         const mes = monthOrder[partes[1].toLowerCase()];
+        if (mes === undefined) return; // ignorar datas com mês não reconhecido
         const ano = parseInt('20' + partes[2]);
         const chave = `${ano}-${String(mes).padStart(2,'0')}`;
         if (!porMes[chave]) porMes[chave] = { ano, mes, lucro: 0, total: 0, greens: 0, reds: 0 };
@@ -633,8 +634,9 @@ function atualizarResumoMensal(operacoesFiltradas) {
     if (!canvasMensal) return;
     if (chartMensal) chartMensal.destroy();
 
-    const labelsGrafico = dados.map(d => `${MESES_PT[d.mes].slice(0,3)} ${d.ano}`).reverse();
-    const valoresGrafico = dados.map(d => d.lucro).reverse();
+    const dadosValidos = dados.filter(d => d.mes !== undefined && MESES_PT[d.mes]);
+    const labelsGrafico = dadosValidos.map(d => `${MESES_PT[d.mes].slice(0,3)} ${d.ano}`).reverse();
+    const valoresGrafico = dadosValidos.map(d => d.lucro).reverse();
 
     chartMensal = new Chart(canvasMensal.getContext('2d'), {
         type: 'bar',
