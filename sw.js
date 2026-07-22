@@ -44,8 +44,7 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Só cachear respostas válidas de origens http/https
-        if (response && response.status === 200 && event.request.url.startsWith('http')) {
+        if (response && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
